@@ -9,6 +9,13 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.IOException;
 import java.io.InputStream;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.awt.event.ActionEvent;
+import edu.univ.erp.data.DBConfig;
+import edu.univ.erp.auth.HashUtil;
+
 
 /**
  * Polished login screen using only Swing.
@@ -119,17 +126,39 @@ public class MainApp {
         DocumentChangeListener.watch(userText, passwordText, enabled -> loginButton.setEnabled(enabled));
 
         // Action (temporary) - replace with real auth call
-        loginButton.addActionListener(e -> {
-            String username = userText.getText().trim();
+        loginButton.addActionListener((ActionEvent e) -> {
+            String username = userText.getText();
             String password = new String(passwordText.getPassword());
-            if (username.isEmpty() || password.isEmpty()) {
-                JOptionPane.showMessageDialog(frame, "Please enter username and password.", "Missing", JOptionPane.WARNING_MESSAGE);
-                return;
+
+            try (Connection conn = DBConfig.getAuthConnection()) {
+                String sql = "SELECT user_id, username, role, password_hash FROM users_auth WHERE username = ?";
+                PreparedStatement stmt = conn.prepareStatement(sql);
+                stmt.setString(1, username);
+
+                ResultSet rs = stmt.executeQuery();
+
+                if (!rs.next()) {
+                    JOptionPane.showMessageDialog(frame, "Invalid username!", "Login Failed", JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+
+                String storedHash = rs.getString("password_hash");
+
+                if (HashUtil.checkPassword(password, storedHash)) {
+                    JOptionPane.showMessageDialog(frame, "Login Successful!", "Success", JOptionPane.INFORMATION_MESSAGE);
+
+                    // TODO: Redirect to student or instructor dashboard later
+                } else {
+                    JOptionPane.showMessageDialog(frame, "Incorrect password!", "Login Failed", JOptionPane.ERROR_MESSAGE);
+                }
+
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                JOptionPane.showMessageDialog(frame, "Database error!", "Error", JOptionPane.ERROR_MESSAGE);
             }
-            // Temporary prototype feedback
-            JOptionPane.showMessageDialog(frame, "Attempting login for: " + username, "Logging in", JOptionPane.INFORMATION_MESSAGE);
-            // TODO: call AuthService.login(username, password)
         });
+
+
 
         // Place button (center aligned)
         c.gridx = 0; c.gridy = 5; c.gridwidth = 2;

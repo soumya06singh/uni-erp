@@ -2,22 +2,23 @@ package edu.univ.erp.auth;
 
 import org.mindrot.jbcrypt.BCrypt;
 
-/**
- * Utility class for handling password hashing and verification using BCrypt.
- */
-public class HashUtil {
+public class HashUtil{
 
-    private static final int LOG_ROUNDS = 12;
-
-    public static String hashPassword(String plaintextPassword) {
-        return BCrypt.hashpw(plaintextPassword, BCrypt.gensalt(LOG_ROUNDS));
+    public static String hashPassword(String Password){
+        if(Password==null){
+            throw new IllegalArgumentException("Password cannot be null.");
+        }
+        return BCrypt.hashpw(Password, BCrypt.gensalt());
     }
 
-    public static boolean checkPassword(String plaintextPassword, String storedHash) {
-        try {
-            return BCrypt.checkpw(plaintextPassword, storedHash);
-        } catch (IllegalArgumentException e) {
-            System.err.println("Error checking hash: " + e.getMessage());
+    public static boolean checkPassword(String Password, String storedHash){
+        if(Password==null||storedHash==null){
+            return false;  // cannot match
+        }
+        try{
+            return BCrypt.checkpw(Password,storedHash);
+        }catch(IllegalArgumentException e){
+            System.err.println("Invalid hash format: " + e.getMessage());
             return false;
         }
     }

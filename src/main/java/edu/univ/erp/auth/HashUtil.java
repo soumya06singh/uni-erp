@@ -22,4 +22,13 @@ public class HashUtil{
             return false;
         }
     }
+
+    public static void main(String[] args) {
+        String password = "password123";   // <-- HARD-CODED PASSWORD
+        String hash = hashPassword(password);
+
+        System.out.println("Plain Password: " + password);
+        System.out.println("Generated Hash:");
+        System.out.println(hash);
+    }
 }

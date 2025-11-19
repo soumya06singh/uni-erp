@@ -1,4 +1,16 @@
 package edu.univ.erp.ui;
+import java.awt.event.ActionEvent;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+
+import edu.univ.erp.data.DBConfig;
+import edu.univ.erp.auth.HashUtil;
+import edu.univ.erp.ui.InstructorDashboard;
+// if you create student/admin windows later, import them similarly:
+// import edu.univ.erp.ui.StudentDashboard;
+// import edu.univ.erp.ui.AdminDashboard;
 
 import javax.imageio.ImageIO;
 import javax.swing.*;
@@ -131,19 +143,16 @@ public class MainApp {
             String password = new String(passwordText.getPassword());
 
             try (Connection conn = DBConfig.getAuthConnection()) {
-
                 String sql = "SELECT user_id, username, role, password_hash FROM users_auth WHERE username = ?";
                 PreparedStatement stmt = conn.prepareStatement(sql);
                 stmt.setString(1, username);
 
                 ResultSet rs = stmt.executeQuery();
 
-                // USER NOT FOUND
                 if (!rs.next()) {
-                    JOptionPane.showMessageDialog(frame,
-                            "Invalid username!",
-                            "Login Failed",
-                            JOptionPane.ERROR_MESSAGE);
+                    JOptionPane.showMessageDialog(frame, "Invalid username!", "Login Failed", JOptionPane.ERROR_MESSAGE);
+                    rs.close();
+                    stmt.close();
                     return;
                 }
 
@@ -151,46 +160,69 @@ public class MainApp {
                 String storedHash = rs.getString("password_hash");
                 String role = rs.getString("role");
 
-                // CHECK PASSWORD
                 if (HashUtil.checkPassword(password, storedHash)) {
-
-                    // UPDATE LAST LOGIN TIMESTAMP
+                    // update last_login
                     String updateSql = "UPDATE users_auth SET last_login = ? WHERE user_id = ?";
-                    PreparedStatement updateStmt = conn.prepareStatement(updateSql);
-                    updateStmt.setLong(1, System.currentTimeMillis());
-                    updateStmt.setString(2, userId);
-                    updateStmt.executeUpdate();
+                    try (PreparedStatement updateStmt = conn.prepareStatement(updateSql)) {
+                        updateStmt.setLong(1, System.currentTimeMillis());
+                        updateStmt.setString(2, userId);
+                        updateStmt.executeUpdate();
+                    } catch (SQLException uex) {
+                        // non-fatal; log and continue
+                        uex.printStackTrace();
+                    }
 
-                    // LOGIN SUCCESS
+                    // Close result set and statement before opening dashboard
+                    rs.close();
+                    stmt.close();
+
+                    // Show success message
                     JOptionPane.showMessageDialog(frame,
-                            "Login Successful!\nRole: " + role,
+                            "Login Successful! Redirecting...",
                             "Success",
                             JOptionPane.INFORMATION_MESSAGE);
 
-                    // ROLE–BASED REDIRECTION PLACEHOLDER
-                    if (role.equals("STUDENT")) {
-                        System.out.println("Redirect to STUDENT dashboard...");
-                    } else if (role.equals("INSTRUCTOR")) {
-                        System.out.println("Redirect to INSTRUCTOR dashboard...");
-                    } else if (role.equals("ADMIN")) {
-                        System.out.println("Redirect to ADMIN dashboard...");
-                    }
+                    // Role-based redirection (run on EDT)
+                    final String rid = role;
+                    final String uid = userId;
+                    final String uname = username;
+                    SwingUtilities.invokeLater(() -> {
+                        if ("INSTRUCTOR".equalsIgnoreCase(rid)) {
+                            // Open Instructor dashboard (your implemented class)
+                            InstructorDashboard dash = new InstructorDashboard(uid, uname);
+                            dash.setVisible(true);
+                            frame.dispose(); // close login window
+                        } else if ("STUDENT".equalsIgnoreCase(rid)) {
+                            // TODO: replace with real StudentDashboard when implemented
+                            JOptionPane.showMessageDialog(null, "Student dashboard not implemented yet.");
+                            // Example when implemented:
+                            // StudentDashboard sd = new StudentDashboard(uid, uname);
+                            // sd.setVisible(true);
+                            // frame.dispose();
+                        } else if ("ADMIN".equalsIgnoreCase(rid)) {
+                            // TODO: replace with real AdminDashboard when implemented
+                            JOptionPane.showMessageDialog(null, "Admin dashboard not implemented yet.");
+                            // Example when implemented:
+                            // AdminDashboard ad = new AdminDashboard(uid, uname);
+                            // ad.setVisible(true);
+                            // frame.dispose();
+                        } else {
+                            JOptionPane.showMessageDialog(null, "Unknown role: " + rid);
+                        }
+                    });
 
                 } else {
-                    JOptionPane.showMessageDialog(frame,
-                            "Incorrect password!",
-                            "Login Failed",
-                            JOptionPane.ERROR_MESSAGE);
+                    rs.close();
+                    stmt.close();
+                    JOptionPane.showMessageDialog(frame, "Incorrect password!", "Login Failed", JOptionPane.ERROR_MESSAGE);
                 }
 
             } catch (Exception ex) {
                 ex.printStackTrace();
-                JOptionPane.showMessageDialog(frame,
-                        "Database error!",
-                        "Error",
-                        JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(frame, "Database error!", "Error", JOptionPane.ERROR_MESSAGE);
             }
         });
+
 
 
 

@@ -131,32 +131,67 @@ public class MainApp {
             String password = new String(passwordText.getPassword());
 
             try (Connection conn = DBConfig.getAuthConnection()) {
+
                 String sql = "SELECT user_id, username, role, password_hash FROM users_auth WHERE username = ?";
                 PreparedStatement stmt = conn.prepareStatement(sql);
                 stmt.setString(1, username);
 
                 ResultSet rs = stmt.executeQuery();
 
+                // USER NOT FOUND
                 if (!rs.next()) {
-                    JOptionPane.showMessageDialog(frame, "Invalid username!", "Login Failed", JOptionPane.ERROR_MESSAGE);
+                    JOptionPane.showMessageDialog(frame,
+                            "Invalid username!",
+                            "Login Failed",
+                            JOptionPane.ERROR_MESSAGE);
                     return;
                 }
 
+                String userId = rs.getString("user_id");
                 String storedHash = rs.getString("password_hash");
+                String role = rs.getString("role");
 
+                // CHECK PASSWORD
                 if (HashUtil.checkPassword(password, storedHash)) {
-                    JOptionPane.showMessageDialog(frame, "Login Successful!", "Success", JOptionPane.INFORMATION_MESSAGE);
 
-                    // TODO: Redirect to student or instructor dashboard later
+                    // UPDATE LAST LOGIN TIMESTAMP
+                    String updateSql = "UPDATE users_auth SET last_login = ? WHERE user_id = ?";
+                    PreparedStatement updateStmt = conn.prepareStatement(updateSql);
+                    updateStmt.setLong(1, System.currentTimeMillis());
+                    updateStmt.setString(2, userId);
+                    updateStmt.executeUpdate();
+
+                    // LOGIN SUCCESS
+                    JOptionPane.showMessageDialog(frame,
+                            "Login Successful!\nRole: " + role,
+                            "Success",
+                            JOptionPane.INFORMATION_MESSAGE);
+
+                    // ROLE–BASED REDIRECTION PLACEHOLDER
+                    if (role.equals("STUDENT")) {
+                        System.out.println("Redirect to STUDENT dashboard...");
+                    } else if (role.equals("INSTRUCTOR")) {
+                        System.out.println("Redirect to INSTRUCTOR dashboard...");
+                    } else if (role.equals("ADMIN")) {
+                        System.out.println("Redirect to ADMIN dashboard...");
+                    }
+
                 } else {
-                    JOptionPane.showMessageDialog(frame, "Incorrect password!", "Login Failed", JOptionPane.ERROR_MESSAGE);
+                    JOptionPane.showMessageDialog(frame,
+                            "Incorrect password!",
+                            "Login Failed",
+                            JOptionPane.ERROR_MESSAGE);
                 }
 
             } catch (Exception ex) {
                 ex.printStackTrace();
-                JOptionPane.showMessageDialog(frame, "Database error!", "Error", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(frame,
+                        "Database error!",
+                        "Error",
+                        JOptionPane.ERROR_MESSAGE);
             }
         });
+
 
 
 

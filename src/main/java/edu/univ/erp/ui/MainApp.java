@@ -4,6 +4,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import edu.univ.erp.ui.StudentDashboard;
 
 import edu.univ.erp.data.DBConfig;
 import edu.univ.erp.auth.HashUtil;
@@ -193,12 +194,13 @@ public class MainApp {
                             dash.setVisible(true);
                             frame.dispose(); // close login window
                         } else if ("STUDENT".equalsIgnoreCase(rid)) {
-                            // TODO: replace with real StudentDashboard when implemented
-                            JOptionPane.showMessageDialog(null, "Student dashboard not implemented yet.");
-                            // Example when implemented:
-                            // StudentDashboard sd = new StudentDashboard(uid, uname);
-                            // sd.setVisible(true);
-                            // frame.dispose();
+                            SwingUtilities.invokeLater(() -> {
+                                StudentDashboard sd = new StudentDashboard(uid, uname);
+                                sd.setVisible(true);
+                                frame.dispose(); // close login window
+                            });
+
+
                         } else if ("ADMIN".equalsIgnoreCase(rid)) {
                             // TODO: replace with real AdminDashboard when implemented
                             JOptionPane.showMessageDialog(null, "Admin dashboard not implemented yet.");

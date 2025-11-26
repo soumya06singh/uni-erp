@@ -14,7 +14,7 @@ public class DBConfig {
     private static final int PORT = 3306;
 
     private static final String DB_USER = "root";
-    private static final String DB_PASS = "soumya2006"; // <--- **CHANGE THIS!**
+    private static final String DB_PASS = "bhavya123"; // <--- **CHANGE THIS!**
 
     private static final String AUTH_DB_NAME = "auth_db";
     private static final String ERP_DB_NAME = "erp_db";

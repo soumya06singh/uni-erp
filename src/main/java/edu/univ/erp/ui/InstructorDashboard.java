@@ -216,8 +216,8 @@ public class InstructorDashboard extends JFrame {
                             r.add(rs.getString("semester"));
                             r.add(rs.getInt("year"));
                             r.add(rs.getString("day"));
-                            r.add(rs.getString("startTime"));
-                            r.add(rs.getString("endTime"));
+                            r.add(rs.getString("start_time"));
+                            r.add(rs.getString("end_time"));
                             r.add(rs.getString("room"));
                             r.add(rs.getInt("capacity"));
                             sectionsModel.addRow(r);
@@ -233,7 +233,7 @@ public class InstructorDashboard extends JFrame {
     }
 
     private boolean isMaintenanceMode() {
-        String sql = "SELECT value FROM settings WHERE `key` = 'maintenance_on'";
+        String sql = "SELECT value FROM settings WHERE setting_key = 'maintenance_mode'";
         try (Connection conn = DBConfig.getErpConnection();
              PreparedStatement ps = conn.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {

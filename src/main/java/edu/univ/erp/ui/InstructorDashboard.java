@@ -131,7 +131,7 @@ public class InstructorDashboard extends JFrame {
         titleBlock.add(lblWelcome);
         header.add(titleBlock, BorderLayout.WEST);
 
-        // Right Header: Maintenance + Stats Button + Department
+        // Right Header: Maintenance + Department
         JPanel rightBlock = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 6));
         rightBlock.setOpaque(false);
 
@@ -140,16 +140,6 @@ public class InstructorDashboard extends JFrame {
         lblMaintenance.setForeground(new Color(180,20,20));
         lblMaintenance.setVisible(false);
         rightBlock.add(lblMaintenance);
-
-        // Stats Button (Small version of PillButton)
-        btnViewStats.setPreferredSize(new Dimension(100, 30));
-        btnViewStats.setFont(HEADER_FONT.deriveFont(12f));
-        // Only enable this button when looking at grades
-        btnViewStats.setVisible(false);
-        rightBlock.add(btnViewStats);
-
-        // Spacer
-        rightBlock.add(Box.createHorizontalStrut(15));
 
         // Department Label
         lblDepartment.setFont(HEADER_FONT.deriveFont(Font.BOLD));
@@ -196,15 +186,13 @@ public class InstructorDashboard extends JFrame {
             lblGradebookTitle.setText("Gradebook: " + courseName + " (" + sectionId + ")");
             loadRosterForSection(sectionId);
 
-            // Switch views and show stats button
+            // Switch views (Button is already inside Gradebook view, so it will show automatically)
             cardLayout.show(mainCardPanel, VIEW_GRADES);
-            btnViewStats.setVisible(true);
         });
 
         // Grades View Actions
         btnBack.addActionListener(e -> {
             cardLayout.show(mainCardPanel, VIEW_SECTIONS);
-            btnViewStats.setVisible(false); // Hide stats button on sections page
         });
 
         btnComputeFinal.addActionListener((ActionEvent e) -> computeFinalAndUpdateTable());
@@ -298,6 +286,7 @@ public class InstructorDashboard extends JFrame {
         JPanel pnl = new JPanel(new BorderLayout(8, 8));
         pnl.setOpaque(false);
 
+        // Table Setup
         tblGrades.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         styleTable(tblGrades, false);
         installNumericEditors();
@@ -305,11 +294,14 @@ public class InstructorDashboard extends JFrame {
         lblGradebookTitle.setFont(HEADER_FONT.deriveFont(Font.BOLD));
         lblGradebookTitle.setBorder(new EmptyBorder(6,6,6,6));
 
+        // Buttons
         JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 8));
         btnPanel.setOpaque(false);
 
         btnPanel.add(btnBack);
-        btnPanel.add(Box.createHorizontalStrut(20));
+        btnPanel.add(Box.createHorizontalStrut(10)); // Small spacer
+        btnPanel.add(btnViewStats);     // <--- Added here
+        btnPanel.add(Box.createHorizontalStrut(10)); // Small spacer
         btnPanel.add(btnComputeFinal);
         btnPanel.add(btnSave);
         btnPanel.add(btnExport);
@@ -320,7 +312,6 @@ public class InstructorDashboard extends JFrame {
 
         return pnl;
     }
-
     private JButton createLogoutButton() {
         JButton logoutBtn = new JButton("Logout");
         logoutBtn.setFont(HEADER_FONT.deriveFont(12f));

@@ -11,6 +11,9 @@ import java.io.FileWriter;
 import java.io.PrintWriter;
 import java.sql.*;
 import java.util.Vector;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
+
 
 /**
  * InstructorDashboard
@@ -169,6 +172,14 @@ public class InstructorDashboard extends JFrame {
         maintenancePollTimer = new javax.swing.Timer(30_000, e -> refreshMaintenanceBanner());
         maintenancePollTimer.setInitialDelay(30_000);
         maintenancePollTimer.start();
+        // When the instructor window gains focus, refresh the maintenance banner immediately
+        addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowActivated(WindowEvent e) {
+                refreshMaintenanceBanner();
+            }
+        });
+
     }
 
     private void setStatsText(String text) {
@@ -241,18 +252,35 @@ public class InstructorDashboard extends JFrame {
     }
 
     private boolean isMaintenanceMode() {
-        String sql = "SELECT value FROM settings WHERE setting_key = 'maintenance_mode'";
-        try (Connection conn = DBConfig.getErpConnection();
-             PreparedStatement ps = conn.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
-            if (rs.next()) {
-                return Boolean.parseBoolean(rs.getString("value"));
-            }
+        // Try flexible lookup: supports either `value` or `setting_value` column.
+        String sqlTryValue = "SELECT `value` as v FROM settings WHERE setting_key = 'maintenance_mode' LIMIT 1";
+        String sqlTrySettingValue = "SELECT setting_value as v FROM settings WHERE setting_key = 'maintenance_mode' LIMIT 1";
+
+        try (Connection conn = DBConfig.getErpConnection()) {
+            // first try 'value'
+            try (PreparedStatement ps = conn.prepareStatement(sqlTryValue);
+                 ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    String s = rs.getString("v");
+                    if (s != null && !s.isBlank()) return Boolean.parseBoolean(s.trim());
+                }
+            } catch (SQLException ignored) { /* try next */ }
+
+            // then try 'setting_value'
+            try (PreparedStatement ps2 = conn.prepareStatement(sqlTrySettingValue);
+                 ResultSet rs2 = ps2.executeQuery()) {
+                if (rs2.next()) {
+                    String s2 = rs2.getString("v");
+                    if (s2 != null && !s2.isBlank()) return Boolean.parseBoolean(s2.trim());
+                }
+            } catch (SQLException ignored) { /* fall through */ }
         } catch (SQLException ex) {
             ex.printStackTrace();
         }
+
         return false;
     }
+
 
     /**
      * Polls DB and updates banner + UI elements.

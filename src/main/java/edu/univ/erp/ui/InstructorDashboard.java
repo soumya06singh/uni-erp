@@ -25,12 +25,12 @@ public class InstructorDashboard extends JFrame {
     private final String username;
 
     // --- Colors & Fonts ---
-    private static final Color BG = Color.WHITE;
+    private static final Color BG = new Color(245, 247, 250); // Light Gray Background for Modern Look
     private static final Color ACCENT = new Color(0, 180, 180);
     private static final Color ACCENT_HOVER = new Color(0, 150, 150);
     private static final Color ACCENT_DARK = new Color(28, 160, 157);
     private static final Color MUTED = new Color(110, 110, 110);
-
+    private static final Color SELECTION_COLOR = new Color(225, 252, 251);
     private static final Font TITLE_FONT = new Font("Segoe UI", Font.BOLD, 20);
     private static final Font HEADER_FONT = new Font("Segoe UI", Font.PLAIN, 14);
 
@@ -52,9 +52,7 @@ public class InstructorDashboard extends JFrame {
     private final JLabel lblWelcome = new JLabel();
     private final JLabel lblDepartment = new JLabel("Department: -");
 
-    // Replaced the old stats label with a button
-    private final JButton btnViewStats = new PillButton("View Stats");
-    private String currentStatsText = "No data available."; // Stores current stats for the popup
+    private String currentStatsText = "No data available.";
 
     private final JLabel lblGradebookTitle = new JLabel("Gradebook");
 
@@ -68,6 +66,7 @@ public class InstructorDashboard extends JFrame {
 
     // Gradebook buttons
     private final JButton btnBack = new PillButton("← Back");
+    private final JButton btnViewStats = new PillButton("View Stats");
     private final JButton btnComputeFinal = new PillButton("Compute Final");
     private final JButton btnSave = new PillButton("Save Grades");
     private final JButton btnExport = new PillButton("Export CSV");
@@ -141,6 +140,9 @@ public class InstructorDashboard extends JFrame {
         lblMaintenance.setVisible(false);
         rightBlock.add(lblMaintenance);
 
+        // Spacer
+        rightBlock.add(Box.createHorizontalStrut(15));
+
         // Department Label
         lblDepartment.setFont(HEADER_FONT.deriveFont(Font.BOLD));
         lblDepartment.setForeground(MUTED);
@@ -186,7 +188,6 @@ public class InstructorDashboard extends JFrame {
             lblGradebookTitle.setText("Gradebook: " + courseName + " (" + sectionId + ")");
             loadRosterForSection(sectionId);
 
-            // Switch views (Button is already inside Gradebook view, so it will show automatically)
             cardLayout.show(mainCardPanel, VIEW_GRADES);
         });
 
@@ -220,7 +221,6 @@ public class InstructorDashboard extends JFrame {
         statsDialog.setLayout(new BorderLayout());
         statsDialog.getContentPane().setBackground(Color.WHITE);
 
-        // Clean styling for the stats text
         JTextArea textArea = new JTextArea(currentStatsText);
         textArea.setEditable(false);
         textArea.setFont(new Font("Segoe UI", Font.PLAIN, 14));
@@ -246,72 +246,135 @@ public class InstructorDashboard extends JFrame {
     // --- View Creation Methods ---
 
     private JPanel createSectionsView() {
-        JPanel pnl = new JPanel(new BorderLayout(8, 8));
-        pnl.setOpaque(false);
+        // Main Container with Padding (The gray background area)
+        JPanel mainContainer = new JPanel(new BorderLayout());
+        mainContainer.setBackground(BG);
+        mainContainer.setBorder(new EmptyBorder(10, 20, 20, 20)); // Padding
 
-        // Table Setup
+        // The "Card" (White box containing the table)
+        JPanel cardPanel = new JPanel(new BorderLayout());
+        cardPanel.setBackground(Color.WHITE);
+        cardPanel.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(230, 230, 230), 1),
+                new EmptyBorder(0, 0, 0, 0)
+        ));
+
+        // --- CARD HEADER (Title Only) ---
+        JPanel cardHeader = new JPanel(new BorderLayout());
+        cardHeader.setBackground(Color.WHITE);
+        cardHeader.setBorder(new EmptyBorder(15, 20, 10, 20));
+
+        JLabel title = new JLabel("My Sections");
+        title.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        title.setForeground(new Color(50, 50, 50));
+        cardHeader.add(title, BorderLayout.WEST);
+
+        // --- TABLE STYLING ---
         sectionsModel.setColumnIdentifiers(new String[]{
                 "Section ID","Course Code","Title","Semester","Year","Day","Start","End","Room","Capacity"
         });
         tblSections.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+
+        // Update table styling for the modern look but keeping original highlight
+        tblSections.setRowHeight(40);
+        tblSections.setShowVerticalLines(false);
+        tblSections.setShowHorizontalLines(true);
+        tblSections.setGridColor(new Color(240, 240, 240));
+
+        // Revert to Original Highlight Logic inside styleTable below...
         styleTable(tblSections, true);
 
-        JLabel title = new JLabel("My Sections");
-        title.setFont(HEADER_FONT.deriveFont(Font.BOLD));
-        title.setBorder(new EmptyBorder(6,6,6,6));
+        // Custom Header styling
+        JTableHeader header = tblSections.getTableHeader();
+        header.setPreferredSize(new Dimension(0, 40));
+        header.setBackground(new Color(248, 249, 250));
+        header.setForeground(new Color(100, 100, 100));
+        header.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        ((DefaultTableCellRenderer)header.getDefaultRenderer()).setHorizontalAlignment(JLabel.LEFT);
 
-        JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 8));
-        btnPanel.setOpaque(false);
+        JScrollPane scrollPane = new JScrollPane(tblSections);
+        scrollPane.getViewport().setBackground(Color.WHITE);
+        scrollPane.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(230,230,230)));
+
+        // --- BUTTON PANEL (Bottom of the Card - "Where they were") ---
+        JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 15));
+        btnPanel.setBackground(Color.WHITE);
+
+        // Make buttons standard size again
+        btnRefreshSections.setPreferredSize(new Dimension(140, 40));
+        btnLoadRoster.setPreferredSize(new Dimension(140, 40));
+
         btnPanel.add(btnRefreshSections);
         btnPanel.add(btnLoadRoster);
 
+        // --- ASSEMBLE CARD ---
+        cardPanel.add(cardHeader, BorderLayout.NORTH);
+        cardPanel.add(scrollPane, BorderLayout.CENTER);
+        cardPanel.add(btnPanel, BorderLayout.SOUTH); // Buttons at bottom of card
+
+        // Add Card to Container
+        mainContainer.add(cardPanel, BorderLayout.CENTER);
+
+        // --- LOGOUT (Outside card, bottom right) ---
         JButton logoutBtn = createLogoutButton();
-        JPanel bottomContainer = new JPanel(new BorderLayout());
-        bottomContainer.setOpaque(false);
-        bottomContainer.add(btnPanel, BorderLayout.WEST);
+        JPanel footerPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        footerPanel.setOpaque(false);
+        footerPanel.setBorder(new EmptyBorder(10, 0, 0, 0));
+        footerPanel.add(logoutBtn);
 
-        JPanel rightBtnContainer = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 8));
-        rightBtnContainer.setOpaque(false);
-        rightBtnContainer.add(logoutBtn);
-        bottomContainer.add(rightBtnContainer, BorderLayout.EAST);
+        mainContainer.add(footerPanel, BorderLayout.SOUTH);
 
-        pnl.add(title, BorderLayout.NORTH);
-        pnl.add(new JScrollPane(tblSections), BorderLayout.CENTER);
-        pnl.add(bottomContainer, BorderLayout.SOUTH);
-
-        return pnl;
+        return mainContainer;
     }
 
     private JPanel createGradebookView() {
-        JPanel pnl = new JPanel(new BorderLayout(8, 8));
-        pnl.setOpaque(false);
+        JPanel mainContainer = new JPanel(new BorderLayout());
+        mainContainer.setBackground(BG);
+        mainContainer.setBorder(new EmptyBorder(10, 20, 20, 20));
 
-        // Table Setup
+        JPanel cardPanel = new JPanel(new BorderLayout());
+        cardPanel.setBackground(Color.WHITE);
+        cardPanel.setBorder(BorderFactory.createLineBorder(new Color(230, 230, 230), 1));
+
+        // Header
+        JPanel cardHeader = new JPanel(new BorderLayout());
+        cardHeader.setBackground(Color.WHITE);
+        cardHeader.setBorder(new EmptyBorder(15, 20, 10, 20));
+
+        lblGradebookTitle.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        lblGradebookTitle.setForeground(new Color(50, 50, 50));
+        cardHeader.add(lblGradebookTitle, BorderLayout.WEST);
+
+        // Table
         tblGrades.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        tblGrades.setRowHeight(35);
         styleTable(tblGrades, false);
         installNumericEditors();
 
-        lblGradebookTitle.setFont(HEADER_FONT.deriveFont(Font.BOLD));
-        lblGradebookTitle.setBorder(new EmptyBorder(6,6,6,6));
+        JScrollPane scrollPane = new JScrollPane(tblGrades);
+        scrollPane.getViewport().setBackground(Color.WHITE);
+        scrollPane.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(230,230,230)));
 
-        // Buttons
-        JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 8));
-        btnPanel.setOpaque(false);
+        // Buttons (Bottom)
+        JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 15));
+        btnPanel.setBackground(Color.WHITE);
 
         btnPanel.add(btnBack);
-        btnPanel.add(Box.createHorizontalStrut(10)); // Small spacer
-        btnPanel.add(btnViewStats);     // <--- Added here
-        btnPanel.add(Box.createHorizontalStrut(10)); // Small spacer
+        btnPanel.add(Box.createHorizontalStrut(10));
+        btnPanel.add(btnViewStats); // Stats button at bottom
+        btnPanel.add(Box.createHorizontalStrut(10));
         btnPanel.add(btnComputeFinal);
         btnPanel.add(btnSave);
         btnPanel.add(btnExport);
 
-        pnl.add(lblGradebookTitle, BorderLayout.NORTH);
-        pnl.add(new JScrollPane(tblGrades), BorderLayout.CENTER);
-        pnl.add(btnPanel, BorderLayout.SOUTH);
+        cardPanel.add(cardHeader, BorderLayout.NORTH);
+        cardPanel.add(scrollPane, BorderLayout.CENTER);
+        cardPanel.add(btnPanel, BorderLayout.SOUTH);
 
-        return pnl;
+        mainContainer.add(cardPanel, BorderLayout.CENTER);
+        return mainContainer;
     }
+
     private JButton createLogoutButton() {
         JButton logoutBtn = new JButton("Logout");
         logoutBtn.setFont(HEADER_FONT.deriveFont(12f));
@@ -336,8 +399,11 @@ public class InstructorDashboard extends JFrame {
         t.setShowGrid(false);
         t.setIntercellSpacing(new Dimension(8, 4));
         t.setFillsViewportHeight(true);
-        t.setSelectionBackground(ACCENT_DARK);
-        t.setSelectionForeground(Color.WHITE);
+
+        // === CHANGE THESE TWO LINES ===
+        t.setSelectionBackground(SELECTION_COLOR); // Use your new light teal
+        t.setSelectionForeground(Color.BLACK);     // Text must be black to be visible
+
         t.setFont(HEADER_FONT);
         JTableHeader hdr = t.getTableHeader();
         hdr.setBackground(Color.WHITE);
@@ -464,7 +530,7 @@ public class InstructorDashboard extends JFrame {
                             countFinal++; if (r.finalScore() >= 50.0) pass++;
                         }
                     }
-                    // Format stats string for the popup
+
                     if (countFinal > 0) {
                         currentStatsText = String.format(
                                 "Class Performance Summary:\n\n" +
@@ -512,7 +578,7 @@ public class InstructorDashboard extends JFrame {
             Double f = toDouble(gradeModel.getValueAt(r, 7));
             if (f != null) { sum += f; min = Math.min(min, f); max = Math.max(max, f); count++; if (f >= 50.0) pass++; }
         }
-        // Update stats string
+
         if (count > 0) {
             currentStatsText = String.format(
                     "Class Performance Summary:\n\n" +

@@ -13,6 +13,7 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 
 public class AdminDashboard extends JFrame {
     private final String userId;
@@ -20,34 +21,29 @@ public class AdminDashboard extends JFrame {
     private final AdminService adminService;
 
     // --- Modern Theme Colors ---
-    private static final Color BG = new Color(245, 247, 250); // Light Gray Background
-    private static final Color ACCENT = new Color(0, 180, 180); // Teal
+    private static final Color BG = new Color(245, 247, 250);
+    private static final Color ACCENT = new Color(0, 180, 180);
     private static final Color ACCENT_HOVER = new Color(0, 150, 150);
     private static final Color ACCENT_DARK = new Color(28, 160, 157);
     private static final Color MUTED = new Color(110, 110, 110);
-    private static final Color SELECTION_COLOR = new Color(225, 252, 251); // Pale Teal Highlight
+    private static final Color SELECTION_COLOR = new Color(225, 252, 251);
 
     private static final Font TITLE_FONT = new Font("Segoe UI", Font.BOLD, 20);
     private static final Font HEADER_FONT = new Font("Segoe UI", Font.PLAIN, 14);
     private static final Font NAV_FONT = new Font("Segoe UI", Font.PLAIN, 15);
     private static final Font NAV_FONT_SELECTED = new Font("Segoe UI", Font.BOLD, 15);
 
-    // --- Layout Components ---
     private CardLayout cardLayout;
     private JPanel mainContentPanel;
     private JLabel lblPageTitle;
     private JLabel maintenanceBanner;
-
-    // Store nav buttons to manage highlighting
     private final List<NavButton> navButtons = new ArrayList<>();
 
-    // --- View Keys ---
     private static final String VIEW_USERS = "USERS";
     private static final String VIEW_COURSES = "COURSES";
     private static final String VIEW_SECTIONS = "SECTIONS";
     private static final String VIEW_SETTINGS = "SETTINGS";
 
-    // --- Tables & Models ---
     private JTable userTable;
     private DefaultTableModel userModel;
     private JTable courseTable;
@@ -71,14 +67,13 @@ public class AdminDashboard extends JFrame {
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
 
-        // 1. --- SIDEBAR NAVIGATION ---
+        // --- SIDEBAR ---
         JPanel sidebar = new JPanel();
         sidebar.setLayout(new BoxLayout(sidebar, BoxLayout.Y_AXIS));
         sidebar.setBackground(Color.WHITE);
         sidebar.setPreferredSize(new Dimension(280, 800));
         sidebar.setBorder(BorderFactory.createMatteBorder(0, 0, 0, 1, new Color(230, 230, 230)));
 
-        // Sidebar Header
         JPanel sideHeader = new JPanel(new FlowLayout(FlowLayout.LEFT, 25, 25));
         sideHeader.setBackground(Color.WHITE);
         sideHeader.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -92,7 +87,6 @@ public class AdminDashboard extends JFrame {
 
         sidebar.add(Box.createVerticalStrut(20));
 
-        // Nav Buttons (Removed Emojis, Added Selection Logic)
         addNavButton(sidebar, "User Management", VIEW_USERS);
         addNavButton(sidebar, "Course Management", VIEW_COURSES);
         addNavButton(sidebar, "Section Management", VIEW_SECTIONS);
@@ -100,7 +94,6 @@ public class AdminDashboard extends JFrame {
 
         sidebar.add(Box.createVerticalGlue());
 
-        // Logout Button
         JButton logoutBtn = new JButton("Logout");
         logoutBtn.setFont(HEADER_FONT);
         logoutBtn.setForeground(new Color(200, 50, 50));
@@ -119,11 +112,10 @@ public class AdminDashboard extends JFrame {
 
         add(sidebar, BorderLayout.WEST);
 
-        // 2. --- MAIN CONTENT AREA ---
+        // --- MAIN CONTENT ---
         JPanel contentWrapper = new JPanel(new BorderLayout());
         contentWrapper.setBackground(BG);
 
-        // Top Bar
         JPanel topBar = new JPanel(new BorderLayout());
         topBar.setBackground(BG);
         topBar.setBorder(new EmptyBorder(20, 30, 10, 30));
@@ -141,7 +133,6 @@ public class AdminDashboard extends JFrame {
         topBar.add(maintenanceBanner, BorderLayout.EAST);
         contentWrapper.add(topBar, BorderLayout.NORTH);
 
-        // Card Layout
         cardLayout = new CardLayout();
         mainContentPanel = new JPanel(cardLayout);
         mainContentPanel.setOpaque(false);
@@ -156,100 +147,93 @@ public class AdminDashboard extends JFrame {
         add(contentWrapper, BorderLayout.CENTER);
 
         checkMaintenanceStatus();
-
-        // Select the first tab by default
-        if (!navButtons.isEmpty()) {
-            setSelectedNav(navButtons.get(0));
-        }
+        if (!navButtons.isEmpty()) setSelectedNav(navButtons.get(0));
     }
 
-    /**
-     * Adds a navigation button to the sidebar.
-     * Uses the custom NavButton class to handle the "Pale Teal" highlighting.
-     */
     private void addNavButton(JPanel sidebar, String text, String viewName) {
         NavButton btn = new NavButton(text, viewName);
-
         btn.addActionListener(e -> {
             cardLayout.show(mainContentPanel, viewName);
             lblPageTitle.setText(text);
-            setSelectedNav(btn); // Highlight this button
+            setSelectedNav(btn);
+        });
+        sidebar.add(btn);
+        navButtons.add(btn);
+    }
+
+    private void setSelectedNav(NavButton selected) {
+        for (NavButton btn : navButtons) btn.setActive(btn == selected);
+    }
+
+    // ==================== HELPER: CUSTOM DIALOG ====================
+    private void showCustomDialog(String title, JPanel content, Consumer<Boolean> onConfirm) {
+        JDialog dialog = new JDialog(this, title, true);
+        dialog.setLayout(new BorderLayout());
+        dialog.getContentPane().setBackground(Color.WHITE);
+        dialog.setSize(450, 550);
+        dialog.setLocationRelativeTo(this);
+
+        JPanel header = new JPanel(new FlowLayout(FlowLayout.LEFT, 20, 15));
+        header.setBackground(BG);
+        JLabel lblTitle = new JLabel(title);
+        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        lblTitle.setForeground(ACCENT_DARK);
+        header.add(lblTitle);
+        dialog.add(header, BorderLayout.NORTH);
+
+        content.setBorder(new EmptyBorder(20, 30, 20, 30));
+        content.setBackground(Color.WHITE);
+        dialog.add(content, BorderLayout.CENTER);
+
+        JPanel footer = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 15));
+        footer.setBackground(Color.WHITE);
+
+        JButton btnCancel = new JButton("Cancel");
+        btnCancel.setFont(HEADER_FONT);
+        btnCancel.setForeground(MUTED);
+        btnCancel.setBackground(Color.WHITE);
+        btnCancel.setBorder(BorderFactory.createLineBorder(new Color(200, 200, 200)));
+        btnCancel.setPreferredSize(new Dimension(90, 34));
+        btnCancel.setFocusPainted(false);
+        btnCancel.addActionListener(e -> dialog.dispose());
+
+        JButton btnSave = new PillButton("Save");
+        btnSave.setPreferredSize(new Dimension(90, 34));
+        btnSave.addActionListener(e -> {
+            dialog.dispose();
+            onConfirm.accept(true);
         });
 
-        sidebar.add(btn);
-        navButtons.add(btn); // Track it
+        footer.add(btnCancel);
+        footer.add(btnSave);
+        dialog.add(footer, BorderLayout.SOUTH);
+
+        dialog.pack();
+        if(dialog.getWidth() < 450) dialog.setSize(450, dialog.getHeight());
+        dialog.setLocationRelativeTo(this);
+        dialog.setVisible(true);
     }
 
-    // Helper to update the visual state of all nav buttons
-    private void setSelectedNav(NavButton selected) {
-        for (NavButton btn : navButtons) {
-            btn.setActive(btn == selected);
-        }
+    private JPanel createFormRow(String label, JComponent field) {
+        JPanel p = new JPanel(new BorderLayout(5, 5));
+        p.setBackground(Color.WHITE);
+        JLabel l = new JLabel(label);
+        l.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        l.setForeground(new Color(80, 80, 80));
+        p.add(l, BorderLayout.NORTH);
+        p.add(field, BorderLayout.CENTER);
+        p.setBorder(new EmptyBorder(0, 0, 10, 0));
+        return p;
     }
 
-    // ==================== CUSTOM NAV BUTTON ====================
-    // This class handles the Highlight Color and the little Accent Bar on the left
-    private static class NavButton extends JButton {
-        private boolean isActive = false;
-        private boolean isHovered = false;
-
-        public NavButton(String text, String viewName) {
-            super(text);
-            setFont(NAV_FONT);
-            setForeground(Color.DARK_GRAY);
-            setBackground(Color.WHITE);
-            setBorder(new EmptyBorder(12, 25, 12, 10));
-            setFocusPainted(false);
-            setContentAreaFilled(false); // We will paint the background ourselves
-            setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-            setHorizontalAlignment(SwingConstants.LEFT);
-            setAlignmentX(Component.LEFT_ALIGNMENT);
-            setMaximumSize(new Dimension(Integer.MAX_VALUE, 55));
-
-            addMouseListener(new MouseAdapter() {
-                public void mouseEntered(MouseEvent e) {
-                    isHovered = true;
-                    repaint();
-                }
-                public void mouseExited(MouseEvent e) {
-                    isHovered = false;
-                    repaint();
-                }
-            });
-        }
-
-        public void setActive(boolean active) {
-            this.isActive = active;
-            setFont(active ? NAV_FONT_SELECTED : NAV_FONT);
-            setForeground(active ? ACCENT_DARK : Color.DARK_GRAY);
-            repaint();
-        }
-
-        @Override
-        protected void paintComponent(Graphics g) {
-            Graphics2D g2 = (Graphics2D) g.create();
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
-            if (isActive) {
-                // 1. Paint Pale Teal Background
-                g2.setColor(SELECTION_COLOR);
-                g2.fillRect(0, 0, getWidth(), getHeight());
-
-                // 2. Paint Active Accent Bar on the Left
-                g2.setColor(ACCENT);
-                g2.fillRect(0, 0, 5, getHeight());
-            } else if (isHovered) {
-                // Hover state (very light gray)
-                g2.setColor(new Color(248, 250, 250));
-                g2.fillRect(0, 0, getWidth(), getHeight());
-            } else {
-                // Default White
-                g2.setColor(Color.WHITE);
-                g2.fillRect(0, 0, getWidth(), getHeight());
-            }
-
-            g2.dispose();
-            super.paintComponent(g);
+    private String cleanTime(String t) {
+        if (t == null) return "";
+        if (t.matches("^\\d{2}:\\d{2}$")) return t;
+        if (t.matches("^\\d{2}:\\d{2}:\\d{2}$")) return t.substring(0, 5);
+        try {
+            return java.time.LocalTime.parse(t).toString().substring(0, 5);
+        } catch (Exception e) {
+            return t;
         }
     }
 
@@ -257,8 +241,9 @@ public class AdminDashboard extends JFrame {
 
     private JPanel createUserPanel() {
         return createCard(panel -> {
-            JPanel toolbar = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+            JPanel toolbar = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 15));
             toolbar.setOpaque(false);
+            toolbar.setBorder(new EmptyBorder(10, 0, 0, 0));
 
             JButton btnStudent = new PillButton("Add Student");
             JButton btnInstr = new PillButton("Add Instructor");
@@ -285,15 +270,16 @@ public class AdminDashboard extends JFrame {
             userTable = new JTable(userModel);
             styleTable(userTable);
 
-            panel.add(toolbar, BorderLayout.NORTH);
             panel.add(createTableScroll(userTable), BorderLayout.CENTER);
+            panel.add(toolbar, BorderLayout.SOUTH);
         });
     }
 
     private JPanel createCoursePanel() {
         return createCard(panel -> {
-            JPanel toolbar = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+            JPanel toolbar = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 15));
             toolbar.setOpaque(false);
+            toolbar.setBorder(new EmptyBorder(10, 0, 0, 0));
 
             JButton btnAdd = new PillButton("Add Course");
             JButton btnEdit = new PillButton("Edit Selected");
@@ -317,15 +303,16 @@ public class AdminDashboard extends JFrame {
             courseTable = new JTable(courseModel);
             styleTable(courseTable);
 
-            panel.add(toolbar, BorderLayout.NORTH);
             panel.add(createTableScroll(courseTable), BorderLayout.CENTER);
+            panel.add(toolbar, BorderLayout.SOUTH);
         });
     }
 
     private JPanel createSectionPanel() {
         return createCard(panel -> {
-            JPanel toolbar = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+            JPanel toolbar = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 15));
             toolbar.setOpaque(false);
+            toolbar.setBorder(new EmptyBorder(10, 0, 0, 0));
 
             JButton btnAdd = new PillButton("Add Section");
             JButton btnEdit = new PillButton("Edit Selected");
@@ -354,8 +341,8 @@ public class AdminDashboard extends JFrame {
             sectionTable = new JTable(sectionModel);
             styleTable(sectionTable);
 
-            panel.add(toolbar, BorderLayout.NORTH);
             panel.add(createTableScroll(sectionTable), BorderLayout.CENTER);
+            panel.add(toolbar, BorderLayout.SOUTH);
         });
     }
 
@@ -411,7 +398,329 @@ public class AdminDashboard extends JFrame {
         });
     }
 
-    // -------------------- UI Helpers --------------------
+    // -------------------- DIALOG IMPLEMENTATIONS --------------------
+
+    private void showAddAdminDialog() {
+        JTextField usernameField = new JTextField(15);
+        JPasswordField passwordField = new JPasswordField(15);
+
+        JPanel panel = new JPanel();
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        panel.add(createFormRow("Username", usernameField));
+        panel.add(createFormRow("Password", passwordField));
+
+        showCustomDialog("Add Administrator", panel, (ok) -> {
+            ServiceResult<String> result = adminService.addAdmin(usernameField.getText().trim(), new String(passwordField.getPassword()));
+            JOptionPane.showMessageDialog(this, result.getMessage());
+            if (result.isSuccess()) loadUsers();
+        });
+    }
+
+    private void showAddStudentDialog() {
+        JTextField usernameField = new JTextField(15);
+        JPasswordField passwordField = new JPasswordField(15);
+        JTextField rollNoField = new JTextField(15);
+        String[] programs = {"Computer Science", "Electrical Engineering", "Mechanical Engineering", "Civil Engineering", "Mathematics"};
+        JComboBox<String> programCombo = new JComboBox<>(programs);
+        JSpinner yearSpinner = new JSpinner(new SpinnerNumberModel(1, 1, 4, 1));
+
+        JPanel panel = new JPanel();
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        panel.add(createFormRow("Username", usernameField));
+        panel.add(createFormRow("Password", passwordField));
+        panel.add(createFormRow("Roll No", rollNoField));
+        panel.add(createFormRow("Program", programCombo));
+        panel.add(createFormRow("Year", yearSpinner));
+
+        showCustomDialog("Add Student", panel, (ok) -> {
+            ServiceResult<String> result = adminService.addStudent(
+                    usernameField.getText().trim(), new String(passwordField.getPassword()),
+                    rollNoField.getText().trim(), (String) programCombo.getSelectedItem(), (int) yearSpinner.getValue());
+            JOptionPane.showMessageDialog(this, result.getMessage());
+            if (result.isSuccess()) loadUsers();
+        });
+    }
+
+    private void showAddInstructorDialog() {
+        JTextField usernameField = new JTextField(15);
+        JPasswordField passwordField = new JPasswordField(15);
+        JComboBox<String> deptDropdown = new JComboBox<>(new String[]{"Computer Science", "Biology", "ECE", "Mathematics", "Physics"});
+        JTextField desigField = new JTextField(15);
+        JTextField roomField = new JTextField(10);
+
+        JPanel panel = new JPanel();
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        panel.add(createFormRow("Username", usernameField));
+        panel.add(createFormRow("Password", passwordField));
+        panel.add(createFormRow("Department", deptDropdown));
+        panel.add(createFormRow("Designation", desigField));
+        panel.add(createFormRow("Office", roomField));
+
+        showCustomDialog("Add Instructor", panel, (ok) -> {
+            ServiceResult<String> result = adminService.addInstructor(
+                    usernameField.getText().trim(), new String(passwordField.getPassword()),
+                    (String) deptDropdown.getSelectedItem(), desigField.getText().trim(), roomField.getText().trim());
+            JOptionPane.showMessageDialog(this, result.getMessage());
+            if (result.isSuccess()) loadUsers();
+        });
+    }
+
+    private void showAddCourseDialog() {
+        JTextField codeField = new JTextField();
+        JTextField nameField = new JTextField();
+        JSpinner creditSpinner = new JSpinner(new SpinnerNumberModel(3, 1, 6, 1));
+        JTextArea descArea = new JTextArea(3, 20);
+
+        JPanel panel = new JPanel();
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        panel.add(createFormRow("Code", codeField));
+        panel.add(createFormRow("Name", nameField));
+        panel.add(createFormRow("Credits", creditSpinner));
+        panel.add(createFormRow("Description", new JScrollPane(descArea)));
+
+        showCustomDialog("Add Course", panel, (ok) -> {
+            ServiceResult<Integer> sr = adminService.addCourse(codeField.getText(), nameField.getText(), (int)creditSpinner.getValue(), descArea.getText());
+            JOptionPane.showMessageDialog(this, sr.getMessage());
+            if(sr.isSuccess()) loadCourses();
+        });
+    }
+
+    private void showEditCourseDialog() {
+        int row = courseTable.getSelectedRow();
+        if (row == -1) { JOptionPane.showMessageDialog(this, "Select a course first."); return; }
+        int cid = (int) courseModel.getValueAt(row, 0);
+
+        JTextField codeField = new JTextField((String)courseModel.getValueAt(row, 1));
+        JTextField nameField = new JTextField((String)courseModel.getValueAt(row, 2));
+        JSpinner creditSpinner = new JSpinner(new SpinnerNumberModel((int)courseModel.getValueAt(row, 3), 1, 6, 1));
+        JTextArea descArea = new JTextArea((String)courseModel.getValueAt(row, 4), 3, 20);
+
+        JPanel panel = new JPanel();
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        panel.add(createFormRow("Code", codeField));
+        panel.add(createFormRow("Name", nameField));
+        panel.add(createFormRow("Credits", creditSpinner));
+        panel.add(createFormRow("Description", new JScrollPane(descArea)));
+
+        showCustomDialog("Edit Course", panel, (ok) -> {
+            ServiceResult<String> sr = adminService.updateCourse(cid, codeField.getText(), nameField.getText(), (int)creditSpinner.getValue(), descArea.getText());
+            JOptionPane.showMessageDialog(this, sr.getMessage());
+            if(sr.isSuccess()) loadCourses();
+        });
+    }
+
+    private void showAddSectionDialog() {
+        var courses = adminService.getAllCourses();
+        var instructors = adminService.getAllInstructors();
+
+        JComboBox<String> courseBox = new JComboBox<>();
+        for (var c : courses) courseBox.addItem(c.courseCode() + " - " + c.courseName());
+
+        JComboBox<String> instructorBox = new JComboBox<>();
+        instructorBox.addItem("--- No Instructor ---");
+        for (var i : instructors) instructorBox.addItem(i.userId() + " (" + i.department() + ")");
+
+        JComboBox<String> semesterBox = new JComboBox<>(new String[] {"Spring", "Fall", "Summer"});
+        JComboBox<String> dayBox = new JComboBox<>(new String[] {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday"});
+        JSpinner yearSpinner = new JSpinner(new SpinnerNumberModel(2024, 2000, 2100, 1));
+        JSpinner.NumberEditor yearEditor = new JSpinner.NumberEditor(yearSpinner, "#");
+        yearSpinner.setEditor(yearEditor);
+
+        JTextField startField = new JTextField(10);
+        JTextField endField = new JTextField(10);
+        JTextField roomField = new JTextField(10);
+        JSpinner capSpinner = new JSpinner(new SpinnerNumberModel(30, 1, 300, 1));
+
+        JPanel panel = new JPanel();
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        panel.add(createFormRow("Course", courseBox));
+        panel.add(createFormRow("Instructor", instructorBox));
+        panel.add(createFormRow("Semester", semesterBox));
+        panel.add(createFormRow("Year", yearSpinner));
+        panel.add(createFormRow("Day", dayBox));
+        panel.add(createFormRow("Start (HH:MM)", startField));
+        panel.add(createFormRow("End (HH:MM)", endField));
+        panel.add(createFormRow("Room", roomField));
+        panel.add(createFormRow("Capacity", capSpinner));
+
+        showCustomDialog("Add Section", panel, (ok) -> {
+            int cIndex = courseBox.getSelectedIndex();
+            int iIndex = instructorBox.getSelectedIndex();
+            if(cIndex == -1) return;
+
+            String instructorId = null;
+            if (iIndex > 0) instructorId = instructors.get(iIndex - 1).userId();
+
+            var result = adminService.addSection(
+                    courses.get(cIndex).courseId(), instructorId, semesterBox.getSelectedItem().toString(),
+                    (int) yearSpinner.getValue(), dayBox.getSelectedItem().toString(),
+                    startField.getText().trim(), endField.getText().trim(),
+                    roomField.getText().trim(), (int) capSpinner.getValue()
+            );
+            JOptionPane.showMessageDialog(this, result.getMessage());
+            if (result.isSuccess()) loadSections();
+        });
+    }
+
+    // --- FIXED EDIT SECTION LOGIC ---
+    private void showEditSectionDialog() {
+        int row = sectionTable.getSelectedRow();
+        if (row == -1) { JOptionPane.showMessageDialog(this, "Select section first."); return; }
+
+        // 1. Get values from table
+        String sectionId = (String) sectionModel.getValueAt(row, 0);
+        String currentInstructor = (String) sectionModel.getValueAt(row, 2);
+        String currentSemester = (String) sectionModel.getValueAt(row, 3);
+        int currentYear = (int) sectionModel.getValueAt(row, 4);
+        String currentDay = (String) sectionModel.getValueAt(row, 5);
+        String timeRange = (String) sectionModel.getValueAt(row, 6); // "09:00 - 10:30"
+        String currentRoom = (String) sectionModel.getValueAt(row, 7);
+        int currentCapacity = (int) sectionModel.getValueAt(row, 8);
+
+        // 2. Parse Time
+        String[] times = timeRange.split(" - ");
+        String startTime = times.length > 0 ? cleanTime(times[0].trim()) : "09:00";
+        String endTime = times.length > 1 ? cleanTime(times[1].trim()) : "10:00";
+
+        // 3. Prepare Components
+        var instructors = adminService.getAllInstructors();
+        JComboBox<String> instructorBox = new JComboBox<>();
+        JComboBox<String> semesterBox = new JComboBox<>(new String[] {"Spring", "Fall", "Summer"});
+        JComboBox<String> dayBox = new JComboBox<>(new String[] {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday"});
+
+        SpinnerNumberModel yearModel = new SpinnerNumberModel(currentYear, 2000, 2100, 1);
+        JSpinner yearSpinner = new JSpinner(yearModel);
+        JSpinner.NumberEditor yearEditor = new JSpinner.NumberEditor(yearSpinner, "#");
+        yearSpinner.setEditor(yearEditor);
+
+        JTextField startField = new JTextField(startTime, 10);
+        JTextField endField = new JTextField(endTime, 10);
+        JTextField roomField = new JTextField(currentRoom, 10);
+        JSpinner capSpinner = new JSpinner(new SpinnerNumberModel(currentCapacity, 1, 300, 1));
+
+        // Populate Instructors and select current
+        instructorBox.addItem("--- No Instructor ---");
+        int selectedIndex = 0;
+        for (int i = 0; i < instructors.size(); i++) {
+            var inst = instructors.get(i);
+            instructorBox.addItem(inst.userId() + " (" + inst.department() + ")");
+            if (inst.userId().equals(currentInstructor)) {
+                selectedIndex = i + 1;
+            }
+        }
+        instructorBox.setSelectedIndex(selectedIndex);
+        semesterBox.setSelectedItem(currentSemester);
+        dayBox.setSelectedItem(currentDay);
+
+        // 4. Build Panel
+        JPanel panel = new JPanel();
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        panel.add(createFormRow("Instructor", instructorBox));
+        panel.add(createFormRow("Semester", semesterBox));
+        panel.add(createFormRow("Year", yearSpinner));
+        panel.add(createFormRow("Day", dayBox));
+        panel.add(createFormRow("Start (HH:MM)", startField));
+        panel.add(createFormRow("End (HH:MM)", endField));
+        panel.add(createFormRow("Room", roomField));
+        panel.add(createFormRow("Capacity", capSpinner));
+
+        // 5. Show Dialog
+        showCustomDialog("Edit Section", panel, (ok) -> {
+            if (!startField.getText().matches("\\d{2}:\\d{2}") || !endField.getText().matches("\\d{2}:\\d{2}")) {
+                JOptionPane.showMessageDialog(this, "Time must be in HH:MM format!", "Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
+            String instructorId = null;
+            int iIndex = instructorBox.getSelectedIndex();
+            if (iIndex > 0) {
+                instructorId = instructors.get(iIndex - 1).userId();
+            }
+
+            ServiceResult<String> result = adminService.updateSection(
+                    sectionId, instructorId, semesterBox.getSelectedItem().toString(),
+                    (int) yearSpinner.getValue(), dayBox.getSelectedItem().toString(),
+                    startField.getText().trim(), endField.getText().trim(),
+                    roomField.getText().trim(), (int) capSpinner.getValue()
+            );
+
+            JOptionPane.showMessageDialog(this, result.getMessage());
+            if (result.isSuccess()) loadSections();
+        });
+    }
+
+    private void showAssignInstructorDialog() {
+        int row = sectionTable.getSelectedRow();
+        if (row == -1) { JOptionPane.showMessageDialog(this, "Select section first."); return; }
+        String sectionId = (String) sectionModel.getValueAt(row, 0);
+
+        var instructors = adminService.getAllInstructors();
+        JComboBox<String> instructorBox = new JComboBox<>();
+        for (var i : instructors) instructorBox.addItem(i.userId() + " (" + i.department() + ")");
+
+        JPanel panel = new JPanel();
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        panel.add(new JLabel("Assign new instructor to " + sectionId));
+        panel.add(Box.createVerticalStrut(10));
+        panel.add(createFormRow("Instructor", instructorBox));
+
+        showCustomDialog("Assign Instructor", panel, (ok) -> {
+            int idx = instructorBox.getSelectedIndex();
+            if(idx >= 0) {
+                String newId = instructors.get(idx).userId();
+                ServiceResult<String> res = adminService.assignInstructor(sectionId, newId);
+                JOptionPane.showMessageDialog(this, res.getMessage());
+                if(res.isSuccess()) loadSections();
+            }
+        });
+    }
+
+    private void deleteSelectedUser() {
+        int row = userTable.getSelectedRow();
+        if (row == -1) { JOptionPane.showMessageDialog(this, "Select a user first."); return; }
+        String uid = (String) userModel.getValueAt(row, 0);
+        String role = (String) userModel.getValueAt(row, 2);
+        if (JOptionPane.showConfirmDialog(this, "Delete user " + uid + "?", "Confirm", JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION) {
+            ServiceResult<String> sr = adminService.deleteUser(uid, role);
+            JOptionPane.showMessageDialog(this, sr.getMessage());
+            if (sr.isSuccess()) loadUsers();
+        }
+    }
+
+    private void deleteSelectedCourse() {
+        int row = courseTable.getSelectedRow();
+        if (row == -1) { JOptionPane.showMessageDialog(this, "Select a course first."); return; }
+        int cid = (int) courseModel.getValueAt(row, 0);
+        if (JOptionPane.showConfirmDialog(this, "Delete course?", "Confirm", JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION) {
+            ServiceResult<String> sr = adminService.deleteCourse(cid);
+            JOptionPane.showMessageDialog(this, sr.getMessage());
+            if(sr.isSuccess()) loadCourses();
+        }
+    }
+
+    private void deleteSelectedSection() {
+        int row = sectionTable.getSelectedRow();
+        if (row == -1) { JOptionPane.showMessageDialog(this, "Select section first."); return; }
+        String sid = (String) sectionModel.getValueAt(row, 0);
+        if (JOptionPane.showConfirmDialog(this, "Delete section " + sid + "?", "Confirm", JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION) {
+            ServiceResult<String> sr = adminService.deleteSection(sid);
+            JOptionPane.showMessageDialog(this, sr.getMessage());
+            if(sr.isSuccess()) loadSections();
+        }
+    }
+
+    private void showChangeDeadlineDialog(String key, String title) {
+        JTextField dateField = new JTextField(15);
+        JPanel panel = new JPanel();
+        panel.add(createFormRow("New Date (YYYY-MM-DD)", dateField));
+
+        showCustomDialog("Change Deadline", panel, (ok) -> {
+            ServiceResult<String> sr = adminService.updateSetting(key, dateField.getText());
+            JOptionPane.showMessageDialog(this, sr.getMessage());
+        });
+    }
+
+    // -------------------- UI HELPERS --------------------
 
     private JPanel createCard(ContentBuilder builder) {
         JPanel card = new JPanel(new BorderLayout(20, 20));
@@ -437,7 +746,6 @@ public class AdminDashboard extends JFrame {
         t.setIntercellSpacing(new Dimension(0, 0));
         t.setFillsViewportHeight(true);
 
-        // Uses the same light teal color as Instructor Dashboard
         t.setSelectionBackground(SELECTION_COLOR);
         t.setSelectionForeground(Color.BLACK);
 
@@ -449,7 +757,6 @@ public class AdminDashboard extends JFrame {
         hdr.setFont(new Font("Segoe UI", Font.BOLD, 12));
         hdr.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(230, 230, 230)));
         hdr.setPreferredSize(new Dimension(0, 40));
-
         ((DefaultTableCellRenderer)hdr.getDefaultRenderer()).setHorizontalAlignment(JLabel.LEFT);
     }
 
@@ -469,8 +776,12 @@ public class AdminDashboard extends JFrame {
         }
     }
 
-    // -------------------- LOGIC & DATA LOADING --------------------
+    private void checkMaintenanceStatus() {
+        boolean isOn = adminService.getMaintenanceMode();
+        maintenanceBanner.setVisible(isOn);
+    }
 
+    // -------------------- DATA LOADING --------------------
     private void loadAllData() {
         loadUsers();
         loadCourses();
@@ -481,200 +792,80 @@ public class AdminDashboard extends JFrame {
     private void loadUsers() {
         userModel.setRowCount(0);
         List<UserView> users = adminService.getAllUsers();
-        for (UserView u : users) {
-            userModel.addRow(new Object[]{u.userId(), u.username(), u.role(), u.status(), u.specificId()});
-        }
+        for (UserView u : users) userModel.addRow(new Object[]{u.userId(), u.username(), u.role(), u.status(), u.specificId()});
     }
 
     private void loadCourses() {
         courseModel.setRowCount(0);
         List<CourseView> courses = adminService.getAllCourses();
-        for (CourseView c : courses) {
-            courseModel.addRow(new Object[]{c.courseId(), c.courseCode(), c.courseName(), c.credits(), c.description()});
-        }
+        for (CourseView c : courses) courseModel.addRow(new Object[]{c.courseId(), c.courseCode(), c.courseName(), c.credits(), c.description()});
     }
 
     private void loadSections() {
         sectionModel.setRowCount(0);
         List<SectionView> sections = adminService.getAllSections();
-        for (SectionView s : sections) {
-            sectionModel.addRow(new Object[]{
-                    s.sectionId(), s.courseCode(), s.instructorId(), s.semester(),
-                    s.year(), s.day(), s.startTime() + " - " + s.endTime(), s.room(),
-                    s.capacity(), s.enrolled()
-            });
-        }
-    }
-
-    private void checkMaintenanceStatus() {
-        boolean isOn = adminService.getMaintenanceMode();
-        maintenanceBanner.setVisible(isOn);
-    }
-
-    // -------------------- DIALOG ACTIONS --------------------
-
-    private void showAddStudentDialog() {
-        JTextField usernameField = new JTextField(15);
-        JPasswordField passwordField = new JPasswordField(15);
-        JTextField rollNoField = new JTextField(15);
-        String[] programs = {"Computer Science", "Electrical Engineering", "Mechanical Engineering", "Civil Engineering", "Mathematics"};
-        JComboBox<String> programCombo = new JComboBox<>(programs);
-        JSpinner yearSpinner = new JSpinner(new SpinnerNumberModel(1, 1, 4, 1));
-
-        JPanel panel = new JPanel(new GridLayout(5, 2, 10, 10));
-        panel.add(new JLabel("Username:")); panel.add(usernameField);
-        panel.add(new JLabel("Password:")); panel.add(passwordField);
-        panel.add(new JLabel("Roll No:")); panel.add(rollNoField);
-        panel.add(new JLabel("Program:")); panel.add(programCombo);
-        panel.add(new JLabel("Year:")); panel.add(yearSpinner);
-
-        if (JOptionPane.showConfirmDialog(this, panel, "Add Student", JOptionPane.OK_CANCEL_OPTION) == JOptionPane.OK_OPTION) {
-            ServiceResult<String> result = adminService.addStudent(
-                    usernameField.getText().trim(), new String(passwordField.getPassword()),
-                    rollNoField.getText().trim(), (String) programCombo.getSelectedItem(), (int) yearSpinner.getValue());
-            JOptionPane.showMessageDialog(this, result.getMessage());
-            if (result.isSuccess()) loadUsers();
-        }
-    }
-
-    private void showAddInstructorDialog() {
-        JTextField usernameField = new JTextField(15);
-        JPasswordField passwordField = new JPasswordField(15);
-        JComboBox<String> deptDropdown = new JComboBox<>(new String[]{"Computer Science", "Biology", "ECE", "Mathematics", "Physics"});
-        JTextField desigField = new JTextField(15);
-        JTextField roomField = new JTextField(10);
-
-        JPanel panel = new JPanel(new GridLayout(5, 2, 10, 10));
-        panel.add(new JLabel("Username:")); panel.add(usernameField);
-        panel.add(new JLabel("Password:")); panel.add(passwordField);
-        panel.add(new JLabel("Department:")); panel.add(deptDropdown);
-        panel.add(new JLabel("Designation:")); panel.add(desigField);
-        panel.add(new JLabel("Office:")); panel.add(roomField);
-
-        if (JOptionPane.showConfirmDialog(this, panel, "Add Instructor", JOptionPane.OK_CANCEL_OPTION) == JOptionPane.OK_OPTION) {
-            ServiceResult<String> result = adminService.addInstructor(
-                    usernameField.getText().trim(), new String(passwordField.getPassword()),
-                    (String) deptDropdown.getSelectedItem(), desigField.getText().trim(), roomField.getText().trim());
-            JOptionPane.showMessageDialog(this, result.getMessage());
-            if (result.isSuccess()) loadUsers();
-        }
-    }
-
-    private void showAddAdminDialog() {
-        JTextField usernameField = new JTextField(15);
-        JPasswordField passwordField = new JPasswordField(15);
-        JPanel panel = new JPanel(new GridLayout(2, 2, 10, 10));
-        panel.add(new JLabel("Username:")); panel.add(usernameField);
-        panel.add(new JLabel("Password:")); panel.add(passwordField);
-
-        if (JOptionPane.showConfirmDialog(this, panel, "Add Admin", JOptionPane.OK_CANCEL_OPTION) == JOptionPane.OK_OPTION) {
-            ServiceResult<String> result = adminService.addAdmin(usernameField.getText().trim(), new String(passwordField.getPassword()));
-            JOptionPane.showMessageDialog(this, result.getMessage());
-            if (result.isSuccess()) loadUsers();
-        }
-    }
-
-    private void deleteSelectedUser() {
-        int row = userTable.getSelectedRow();
-        if (row == -1) { JOptionPane.showMessageDialog(this, "Select a user first."); return; }
-        String uid = (String) userModel.getValueAt(row, 0);
-        String role = (String) userModel.getValueAt(row, 2);
-
-        if (JOptionPane.showConfirmDialog(this, "Delete user " + uid + "?", "Confirm", JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION) {
-            ServiceResult<String> sr = adminService.deleteUser(uid, role);
-            JOptionPane.showMessageDialog(this, sr.getMessage());
-            if (sr.isSuccess()) loadUsers();
-        }
-    }
-
-    private void showAddCourseDialog() {
-        JTextField codeField = new JTextField();
-        JTextField nameField = new JTextField();
-        JSpinner creditSpinner = new JSpinner(new SpinnerNumberModel(3, 1, 6, 1));
-        JTextArea descArea = new JTextArea(3, 20);
-
-        JPanel panel = new JPanel(new GridLayout(4, 2, 10, 10));
-        panel.add(new JLabel("Code:")); panel.add(codeField);
-        panel.add(new JLabel("Name:")); panel.add(nameField);
-        panel.add(new JLabel("Credits:")); panel.add(creditSpinner);
-        panel.add(new JLabel("Desc:")); panel.add(new JScrollPane(descArea));
-
-        if (JOptionPane.showConfirmDialog(this, panel, "Add Course", JOptionPane.OK_CANCEL_OPTION) == JOptionPane.OK_OPTION) {
-            ServiceResult<Integer> sr = adminService.addCourse(codeField.getText(), nameField.getText(), (int)creditSpinner.getValue(), descArea.getText());
-            JOptionPane.showMessageDialog(this, sr.getMessage());
-            if(sr.isSuccess()) loadCourses();
-        }
-    }
-
-    private void showEditCourseDialog() {
-        int row = courseTable.getSelectedRow();
-        if (row == -1) { JOptionPane.showMessageDialog(this, "Select a course first."); return; }
-        int cid = (int) courseModel.getValueAt(row, 0);
-
-        JTextField codeField = new JTextField((String)courseModel.getValueAt(row, 1));
-        JTextField nameField = new JTextField((String)courseModel.getValueAt(row, 2));
-        JSpinner creditSpinner = new JSpinner(new SpinnerNumberModel((int)courseModel.getValueAt(row, 3), 1, 6, 1));
-        JTextArea descArea = new JTextArea((String)courseModel.getValueAt(row, 4), 3, 20);
-
-        JPanel panel = new JPanel(new GridLayout(4, 2, 10, 10));
-        panel.add(new JLabel("Code:")); panel.add(codeField);
-        panel.add(new JLabel("Name:")); panel.add(nameField);
-        panel.add(new JLabel("Credits:")); panel.add(creditSpinner);
-        panel.add(new JLabel("Desc:")); panel.add(new JScrollPane(descArea));
-
-        if (JOptionPane.showConfirmDialog(this, panel, "Edit Course", JOptionPane.OK_CANCEL_OPTION) == JOptionPane.OK_OPTION) {
-            ServiceResult<String> sr = adminService.updateCourse(cid, codeField.getText(), nameField.getText(), (int)creditSpinner.getValue(), descArea.getText());
-            JOptionPane.showMessageDialog(this, sr.getMessage());
-            if(sr.isSuccess()) loadCourses();
-        }
-    }
-
-    private void deleteSelectedCourse() {
-        int row = courseTable.getSelectedRow();
-        if (row == -1) { JOptionPane.showMessageDialog(this, "Select a course first."); return; }
-        int cid = (int) courseModel.getValueAt(row, 0);
-        if (JOptionPane.showConfirmDialog(this, "Delete course?", "Confirm", JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION) {
-            ServiceResult<String> sr = adminService.deleteCourse(cid);
-            JOptionPane.showMessageDialog(this, sr.getMessage());
-            if(sr.isSuccess()) loadCourses();
-        }
-    }
-
-    private void showAddSectionDialog() {
-        JOptionPane.showMessageDialog(this, "Please implement full Add Section logic here using provided templates.");
-    }
-
-    private void showEditSectionDialog() {
-        JOptionPane.showMessageDialog(this, "Please implement full Edit Section logic here using provided templates.");
-    }
-
-    private void showAssignInstructorDialog() {
-        JOptionPane.showMessageDialog(this, "Please implement Assign Instructor logic here.");
-    }
-
-    private void deleteSelectedSection() {
-        int row = sectionTable.getSelectedRow();
-        if (row == -1) { JOptionPane.showMessageDialog(this, "Select section first."); return; }
-        String sid = (String) sectionModel.getValueAt(row, 0);
-        if (JOptionPane.showConfirmDialog(this, "Delete section " + sid + "?", "Confirm", JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION) {
-            ServiceResult<String> sr = adminService.deleteSection(sid);
-            JOptionPane.showMessageDialog(this, sr.getMessage());
-            if(sr.isSuccess()) loadSections();
-        }
-    }
-
-    private void showChangeDeadlineDialog(String key, String title) {
-        String val = JOptionPane.showInputDialog(this, "Enter new date (YYYY-MM-DD):", title, JOptionPane.PLAIN_MESSAGE);
-        if (val != null && !val.isEmpty()) {
-            ServiceResult<String> sr = adminService.updateSetting(key, val);
-            JOptionPane.showMessageDialog(this, sr.getMessage());
-        }
+        for (SectionView s : sections) sectionModel.addRow(new Object[]{
+                s.sectionId(), s.courseCode(), s.instructorId(), s.semester(),
+                s.year(), s.day(), s.startTime() + " - " + s.endTime(), s.room(),
+                s.capacity(), s.enrolled()});
     }
 
     // -------------------- CUSTOM COMPONENTS --------------------
 
     interface ContentBuilder {
         void build(JPanel panel);
+    }
+
+    private static class NavButton extends JButton {
+        private boolean isActive = false;
+        private boolean isHovered = false;
+
+        public NavButton(String text, String viewName) {
+            super(text);
+            setFont(NAV_FONT);
+            setForeground(Color.DARK_GRAY);
+            setBackground(Color.WHITE);
+            setBorder(new EmptyBorder(12, 25, 12, 10));
+            setFocusPainted(false);
+            setContentAreaFilled(false);
+            setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            setHorizontalAlignment(SwingConstants.LEFT);
+            setAlignmentX(Component.LEFT_ALIGNMENT);
+            setMaximumSize(new Dimension(Integer.MAX_VALUE, 55));
+
+            addMouseListener(new MouseAdapter() {
+                public void mouseEntered(MouseEvent e) { isHovered = true; repaint(); }
+                public void mouseExited(MouseEvent e) { isHovered = false; repaint(); }
+            });
+        }
+
+        public void setActive(boolean active) {
+            this.isActive = active;
+            setFont(active ? NAV_FONT_SELECTED : NAV_FONT);
+            setForeground(active ? ACCENT_DARK : Color.DARK_GRAY);
+            repaint();
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+            if (isActive) {
+                g2.setColor(SELECTION_COLOR);
+                g2.fillRect(0, 0, getWidth(), getHeight());
+                g2.setColor(ACCENT);
+                g2.fillRect(0, 0, 5, getHeight());
+            } else if (isHovered) {
+                g2.setColor(new Color(248, 250, 250));
+                g2.fillRect(0, 0, getWidth(), getHeight());
+            } else {
+                g2.setColor(Color.WHITE);
+                g2.fillRect(0, 0, getWidth(), getHeight());
+            }
+            g2.dispose();
+            super.paintComponent(g);
+        }
     }
 
     private static class PillButton extends JButton {
@@ -690,12 +881,8 @@ public class AdminDashboard extends JFrame {
             setPreferredSize(new Dimension(130, 36));
 
             addMouseListener(new MouseAdapter() {
-                public void mouseEntered(MouseEvent e) {
-                    if(getBackground().equals(ACCENT)) setBackground(ACCENT_HOVER);
-                }
-                public void mouseExited(MouseEvent e) {
-                    if(getBackground().equals(ACCENT_HOVER)) setBackground(ACCENT);
-                }
+                public void mouseEntered(MouseEvent e) { if(getBackground().equals(ACCENT)) setBackground(ACCENT_HOVER); }
+                public void mouseExited(MouseEvent e) { if(getBackground().equals(ACCENT_HOVER)) setBackground(ACCENT); }
             });
         }
 

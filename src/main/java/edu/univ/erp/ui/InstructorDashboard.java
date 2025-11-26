@@ -1,11 +1,10 @@
 package edu.univ.erp.ui;
 
 import edu.univ.erp.data.DBConfig;
-import edu.univ.erp.auth.HashUtil;
 
 import javax.swing.*;
-import javax.swing.table.DefaultTableModel;
 import javax.swing.filechooser.FileNameExtensionFilter;
+import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.io.FileWriter;
@@ -16,35 +15,11 @@ import java.util.Vector;
 /**
  * InstructorDashboard
  *
- * Features:
- * - Shows instructor's sections (only sections where instructor_id == logged-in user_id)
- * - When a section is selected, loads roster + existing grades into an editable JTable
- * - Editable columns: Quiz, Midterm, EndSem
- * - Buttons:
- *     - Compute Final (uses 20/30/50 weighting)
- *     - Save Grades (insert/update into grades table)
- *     - Export CSV
- *     - Refresh
- * - Shows class statistics (avg, min, max, pass%)
- * - Checks:
- *     - Only instructor of the section can edit/save
- *     - If maintenance_on = true (settings table) editing and saving blocked
- *
- * Assumptions:
- * - enrollments (enrollment_id, student_id, section_id, status)
- * - students (user_id, roll_no, program, year)
- * - courses (course_id, code, title)
- * - sections (section_id, course_id, instructor_id, semester, year, day, startTime, endTime, room, capacity)
- * - auth_db.users_auth holds usernames and user_ids
- *
- * Grades schema used by this dashboard:
- *   grade_id VARCHAR(36) PK
- *   enrollment_id VARCHAR(36)
- *   component VARCHAR(50)   -- 'QUIZ'|'MIDTERM'|'ENDSEM'|'FINAL'
- *   score DOUBLE
- *   weight INT
- *
- * Use the provided SQL in your DB to create the grades table if you haven't already.
+ * - Shows instructor sections
+ * - Loads roster + existing grades into an editable JTable
+ * - Editable columns: Quiz, Midterm, EndSem (blocked during maintenance)
+ * - Compute final, Save grades (upsert), Export CSV
+ * - Periodically polls settings table to show maintenance banner and disable editing
  */
 public class InstructorDashboard extends JFrame {
 
@@ -55,11 +30,17 @@ public class InstructorDashboard extends JFrame {
     private final JTable tblSections = new JTable(sectionsModel);
 
     private final DefaultTableModel gradeModel = new DefaultTableModel();
-    private final JTable tblGrades = new JTable(gradeModel);
+    // We'll instantiate tblGrades as an anonymous subclass below so isCellEditable can check maintenanceOn
+    private final JTable tblGrades;
 
     private final JLabel lblWelcome = new JLabel();
     private final JLabel lblDepartment = new JLabel("Department: -");
     private final JLabel lblStats = new JLabel("Stats: -");
+
+    // maintenance banner & state
+    private final JLabel lblMaintenance = new JLabel();
+    private volatile boolean maintenanceOn = false;
+    private javax.swing.Timer maintenancePollTimer;
 
     private final JButton btnRefreshSections = new JButton("Refresh Sections");
     private final JButton btnLoadRoster = new JButton("Load Roster");
@@ -76,6 +57,24 @@ public class InstructorDashboard extends JFrame {
         super("Instructor Dashboard - " + username);
         this.instructorUserId = instructorUserId;
         this.username = username;
+
+        // initialize gradeModel columns first
+        gradeModel.setColumnIdentifiers(new String[]{
+                "Enrollment ID", "Student ID", "Roll No", "Student Name", "Quiz", "Midterm", "EndSem", "Final"
+        });
+
+        // Create tblGrades as a subclass that blocks edits when maintenanceOn is true
+        tblGrades = new JTable(gradeModel) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                // allow editing only for Quiz (4), Midterm (5), EndSem (6) and only when maintenance is OFF
+                if (column >= 4 && column <= 6) {
+                    return !maintenanceOn;
+                }
+                return false;
+            }
+        };
+
         initUI();
         loadInstructorDepartment();
         loadSections();
@@ -97,12 +96,7 @@ public class InstructorDashboard extends JFrame {
 
         JScrollPane spSections = new JScrollPane(tblSections);
 
-        // gradeModel columns
-        gradeModel.setColumnIdentifiers(new String[]{
-                "Enrollment ID", "Student ID", "Roll No", "Student Name", "Quiz", "Midterm", "EndSem", "Final"
-        });
         tblGrades.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-
         JScrollPane spGrades = new JScrollPane(tblGrades);
 
         // top panel
@@ -111,6 +105,14 @@ public class InstructorDashboard extends JFrame {
         topLeft.add(lblWelcome);
         topLeft.add(new JLabel("   "));
         topLeft.add(lblDepartment);
+
+        // maintenance banner (initially hidden)
+        lblMaintenance.setFont(lblMaintenance.getFont().deriveFont(Font.BOLD, 12f));
+        lblMaintenance.setForeground(new Color(180, 0, 0)); // dark red
+        lblMaintenance.setVisible(false);
+        topLeft.add(Box.createHorizontalStrut(12));
+        topLeft.add(lblMaintenance);
+
         top.add(topLeft, BorderLayout.WEST);
 
         JPanel topRight = new JPanel(new FlowLayout(FlowLayout.RIGHT));
@@ -161,6 +163,12 @@ public class InstructorDashboard extends JFrame {
         btnComputeFinal.addActionListener((ActionEvent e) -> computeFinalAndUpdateTable());
         btnSave.addActionListener((ActionEvent e) -> saveGradesToDB());
         btnExport.addActionListener((ActionEvent e) -> exportGradesCSV());
+
+        // initial banner refresh and start poll timer
+        refreshMaintenanceBanner();
+        maintenancePollTimer = new javax.swing.Timer(30_000, e -> refreshMaintenanceBanner());
+        maintenancePollTimer.setInitialDelay(30_000);
+        maintenancePollTimer.start();
     }
 
     private void setStatsText(String text) {
@@ -244,6 +252,51 @@ public class InstructorDashboard extends JFrame {
             ex.printStackTrace();
         }
         return false;
+    }
+
+    /**
+     * Polls DB and updates banner + UI elements.
+     */
+    private void refreshMaintenanceBanner() {
+        new SwingWorker<Boolean, Void>() {
+            @Override
+            protected Boolean doInBackground() {
+                return isMaintenanceMode();
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    boolean on = get();
+                    applyMaintenanceState(on);
+                } catch (Exception ex) {
+                    // if anything fails, assume not in maintenance to avoid locking users out accidentally
+                    applyMaintenanceState(false);
+                }
+            }
+        }.execute();
+    }
+
+    /**
+     * Update UI interactivity based on maintenance state.
+     */
+    private void applyMaintenanceState(boolean on) {
+        SwingUtilities.invokeLater(() -> {
+            maintenanceOn = on;
+            if (on) {
+                lblMaintenance.setText("MAINTENANCE MODE — system is read-only");
+                lblMaintenance.setVisible(true);
+            } else {
+                lblMaintenance.setVisible(false);
+            }
+            // disable actions that would modify data
+            btnSave.setEnabled(!on);
+            btnComputeFinal.setEnabled(!on);
+            btnLoadRoster.setEnabled(!on);
+            // disable section refresh? we allow refresh (read-only) — keep Refresh enabled
+            // block editing in table by revalidating; JTable.isCellEditable consults maintenanceOn
+            tblGrades.repaint();
+        });
     }
 
     private void loadRosterForSection(String sectionId) {
@@ -356,7 +409,6 @@ public class InstructorDashboard extends JFrame {
     }
 
     private void computeFinalAndUpdateTable() {
-        // Check maintenance and permission
         int sel = tblSections.getSelectedRow();
         if (sel < 0) { JOptionPane.showMessageDialog(this, "Select a section first."); return; }
         String sectionId = (String) sectionsModel.getValueAt(sel, 0);
@@ -365,12 +417,11 @@ public class InstructorDashboard extends JFrame {
             JOptionPane.showMessageDialog(this, "You are not the instructor for this section.", "Permission denied", JOptionPane.ERROR_MESSAGE);
             return;
         }
-        if (isMaintenanceMode()) {
+        if (maintenanceOn) {
             JOptionPane.showMessageDialog(this, "System is in maintenance mode. Cannot compute grades.", "Maintenance", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
-        // For every row compute final = quiz*0.2 + mid*0.3 + end*0.5
         for (int r = 0; r < gradeModel.getRowCount(); r++) {
             Object oQuiz = gradeModel.getValueAt(r, 4);
             Object oMid = gradeModel.getValueAt(r, 5);
@@ -385,13 +436,10 @@ public class InstructorDashboard extends JFrame {
             double endVal = end == null ? 0.0 : end;
 
             double finalScore = quizVal * W_QUIZ + midVal * W_MID + endVal * W_END;
-
-            // round to 2 decimals
             double rounded = Math.round(finalScore * 100.0) / 100.0;
             gradeModel.setValueAt(rounded, r, 7);
         }
 
-        // update stats after compute
         SwingUtilities.invokeLater(this::recalculateStatsFromTable);
     }
 
@@ -441,12 +489,11 @@ public class InstructorDashboard extends JFrame {
             JOptionPane.showMessageDialog(this, "You are not the instructor for this section.", "Permission denied", JOptionPane.ERROR_MESSAGE);
             return;
         }
-        if (isMaintenanceMode()) {
+        if (maintenanceOn) {
             JOptionPane.showMessageDialog(this, "System is in maintenance mode. Cannot save grades.", "Maintenance", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
-        // For each enrollment row, upsert QUIZ, MIDTERM, ENDSEM, FINAL into grades table
         new SwingWorker<Void, Void>() {
             @Override
             protected Void doInBackground() throws Exception {
@@ -465,7 +512,6 @@ public class InstructorDashboard extends JFrame {
                             Double end = parseDoubleOrNull(gradeModel.getValueAt(r, 6));
                             Double finalScore = parseDoubleOrNull(gradeModel.getValueAt(r, 7));
 
-                            // QUIZ
                             if (quiz != null) {
                                 ps.setString(1, enrollmentId);
                                 ps.setString(2, "QUIZ");
@@ -473,7 +519,6 @@ public class InstructorDashboard extends JFrame {
                                 ps.setInt(4, (int) Math.round(W_QUIZ * 100));
                                 ps.addBatch();
                             }
-                            // MIDTERM
                             if (mid != null) {
                                 ps.setString(1, enrollmentId);
                                 ps.setString(2, "MIDTERM");
@@ -481,7 +526,6 @@ public class InstructorDashboard extends JFrame {
                                 ps.setInt(4, (int) Math.round(W_MID * 100));
                                 ps.addBatch();
                             }
-                            // ENDSEM
                             if (end != null) {
                                 ps.setString(1, enrollmentId);
                                 ps.setString(2, "ENDSEM");
@@ -489,12 +533,11 @@ public class InstructorDashboard extends JFrame {
                                 ps.setInt(4, (int) Math.round(W_END * 100));
                                 ps.addBatch();
                             }
-                            // FINAL (store computed final as well)
                             if (finalScore != null) {
                                 ps.setString(1, enrollmentId);
                                 ps.setString(2, "FINAL");
                                 ps.setDouble(3, finalScore);
-                                ps.setInt(4, 100); // final is 100-scale
+                                ps.setInt(4, 100);
                                 ps.addBatch();
                             }
                         }
@@ -530,13 +573,11 @@ public class InstructorDashboard extends JFrame {
         if (!path.toLowerCase().endsWith(".csv")) path += ".csv";
 
         try (PrintWriter pw = new PrintWriter(new FileWriter(path))) {
-            // header
             for (int c = 0; c < gradeModel.getColumnCount(); c++) {
                 pw.print(gradeModel.getColumnName(c));
                 if (c < gradeModel.getColumnCount() - 1) pw.print(",");
             }
             pw.println();
-            // rows
             for (int r = 0; r < gradeModel.getRowCount(); r++) {
                 for (int c = 0; c < gradeModel.getColumnCount(); c++) {
                     Object v = gradeModel.getValueAt(r, c);
@@ -550,6 +591,14 @@ public class InstructorDashboard extends JFrame {
             ex.printStackTrace();
             JOptionPane.showMessageDialog(this, "Error exporting CSV: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }
+    }
+
+    @Override
+    public void dispose() {
+        if (maintenancePollTimer != null && maintenancePollTimer.isRunning()) {
+            maintenancePollTimer.stop();
+        }
+        super.dispose();
     }
 
     // convenience main for testing (replace argument with an actual instructor user_id)

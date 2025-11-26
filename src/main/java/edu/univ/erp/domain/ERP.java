@@ -20,8 +20,8 @@ public class ERP {
 
     public record Course(
             String courseId,
-            String code,
-            String title,
+            String courseCode,
+            String courseName,
             int credits
     ) {}
 
@@ -39,7 +39,7 @@ public class ERP {
     ) {}
 
     public record Enrollment(
-            String enrollmentId,
+            int enrollmentId,
             String studentId,
             String sectionId,
             String status

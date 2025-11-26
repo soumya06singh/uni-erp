@@ -200,9 +200,10 @@ public class InstructorDashboard extends JFrame {
         new SwingWorker<Void, Void>() {
             @Override
             protected Void doInBackground() {
-                String sql = "SELECT s.section_id, c.code, c.title, s.semester, s.year, s.day, s.startTime, s.endTime, s.room, s.capacity " +
+                String sql = "SELECT s.section_id, c.course_code, c.course_name, s.semester, s.year, s.day, s.start_time, s.end_time, s.room, s.capacity " +
                         "FROM sections s JOIN courses c ON s.course_id = c.course_id " +
                         "WHERE s.instructor_id = ?";
+
                 try (Connection conn = DBConfig.getErpConnection();
                      PreparedStatement ps = conn.prepareStatement(sql)) {
                     ps.setString(1, instructorUserId);
@@ -210,8 +211,8 @@ public class InstructorDashboard extends JFrame {
                         while (rs.next()) {
                             Vector<Object> r = new Vector<>();
                             r.add(rs.getString("section_id"));
-                            r.add(rs.getString("code"));
-                            r.add(rs.getString("title"));
+                            r.add(rs.getString("course_code"));
+                            r.add(rs.getString("course_name"));
                             r.add(rs.getString("semester"));
                             r.add(rs.getInt("year"));
                             r.add(rs.getString("day"));

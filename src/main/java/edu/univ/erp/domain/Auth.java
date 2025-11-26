@@ -1,5 +1,4 @@
 package edu.univ.erp.domain;
-
 public class Auth {
 
     public enum Role {

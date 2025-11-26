@@ -1,34 +1,37 @@
 package edu.univ.erp.ui;
 
-import edu.univ.erp.data.DBConfig;
+import edu.univ.erp.service.StudentService;
+import edu.univ.erp.service.StudentService.*;
+import edu.univ.erp.domain.ServiceResult;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableRowSorter;
 import java.awt.*;
 import java.io.FileWriter;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.Vector;
 
 public class StudentDashboard extends JFrame {
 
     private final String userId;
     private final String username;
+    private final StudentService studentService;
     private JTable enrollTable;
     private DefaultTableModel enrollModel;
-    private JPanel mainPanel;
     private JLabel maintenanceBanner;
-    private boolean maintenanceMode;
+    private DefaultTableModel catalogModel;
+    private DefaultTableModel timetableModel;
+    private DefaultTableModel gradesModel;
+
 
     public StudentDashboard(String userId, String username) {
         super("Student Dashboard - " + username);
         this.userId = userId;
         this.username = username;
+        this.studentService = new StudentService();
 
         initUI();
         checkMaintenanceMode();
@@ -89,10 +92,7 @@ public class StudentDashboard extends JFrame {
         transcriptBtn.addActionListener(e -> downloadTranscript());
 
         JButton logoutBtn = new JButton("🚪 Logout");
-        logoutBtn.addActionListener(e -> {
-            dispose();
-            // You can add code here to return to login screen
-        });
+        logoutBtn.addActionListener(e -> dispose());
 
         bottomPanel.add(refreshBtn);
         bottomPanel.add(transcriptBtn);
@@ -117,7 +117,7 @@ public class StudentDashboard extends JFrame {
         };
         enrollModel.setColumnIdentifiers(new Object[]{
                 "Section ID", "Course Code", "Course Title", "Credits", "Instructor",
-                "Semester", "Year", "Room", "Day", "Time", "Status"
+                "Semester", "Room", "Status"
         });
 
         enrollTable = new JTable(enrollModel);
@@ -143,41 +143,20 @@ public class StudentDashboard extends JFrame {
     private void loadEnrollments() {
         enrollModel.setRowCount(0);
 
-        String sql = "SELECT sec.section_id, c.course_code, c.course_name, c.credits, " +
-                "COALESCE(instr.user_id, 'TBA') AS instructor_id, " +
-                "sec.semester, sec.year, sec.room, sec.day, " +
-                "CONCAT(sec.start_time, ' - ', sec.end_time) AS time, e.status " +
-                "FROM enrollments e " +
-                "JOIN sections sec ON e.section_id = sec.section_id " +
-                "JOIN courses c ON sec.course_id = c.course_id " +
-                "LEFT JOIN instructors instr ON sec.instructor_id = instr.user_id " +
-                "WHERE e.student_id = ?";
+        // USE SERVICE LAYER INSTEAD OF DIRECT SQL
+        List<EnrollmentView> enrollments = studentService.getStudentEnrollments(userId);
 
-        try (Connection conn = DBConfig.getErpConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-
-            ps.setString(1, userId);
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    Vector<Object> row = new Vector<>();
-                    row.add(rs.getString("section_id"));
-                    row.add(rs.getString("course_code"));
-                    row.add(rs.getString("course_name"));
-                    row.add(rs.getInt("credits"));
-                    row.add(rs.getString("instructor_id"));
-                    row.add(rs.getString("semester"));
-                    row.add(rs.getInt("year"));
-                    row.add(rs.getString("room"));
-                    row.add(rs.getString("day"));
-                    row.add(rs.getString("time"));
-                    row.add(rs.getString("status"));
-                    enrollModel.addRow(row);
-                }
-            }
-        } catch (Exception ex) {
-            ex.printStackTrace();
-            JOptionPane.showMessageDialog(this, "Failed to load enrollments: " + ex.getMessage(),
-                    "Error", JOptionPane.ERROR_MESSAGE);
+        for (EnrollmentView enrollment : enrollments) {
+            Vector<Object> row = new Vector<>();
+            row.add(enrollment.sectionId());
+            row.add(enrollment.courseCode());
+            row.add(enrollment.courseName());
+            row.add(enrollment.credits());
+            row.add(enrollment.instructorId());
+            row.add(enrollment.semester());
+            row.add(enrollment.room());
+            row.add(enrollment.status());
+            enrollModel.addRow(row);
         }
     }
 
@@ -186,9 +165,13 @@ public class StudentDashboard extends JFrame {
         JPanel panel = new JPanel(new BorderLayout(10, 10));
         panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
+        JLabel headerLabel = new JLabel("Browse & Register for Courses");
+        headerLabel.setFont(new Font("SansSerif", Font.BOLD, 14));
+        headerLabel.setBorder(BorderFactory.createEmptyBorder(5, 5, 10, 5));
+
         // Search panel
-        JPanel searchPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        searchPanel.add(new JLabel("Search:"));
+        JPanel searchPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
+        searchPanel.add(new JLabel("Search Course:"));
         JTextField searchField = new JTextField(20);
         searchPanel.add(searchField);
 
@@ -199,35 +182,62 @@ public class StudentDashboard extends JFrame {
         JButton searchBtn = new JButton("🔍 Search");
         searchPanel.add(searchBtn);
 
+        JButton clearBtn = new JButton("Clear");
+        clearBtn.addActionListener(e -> {
+            searchField.setText("");
+            semesterCombo.setSelectedIndex(0);
+        });
+        searchPanel.add(clearBtn);
+
         // Catalog table
-        DefaultTableModel catalogModel = new DefaultTableModel() {
+        catalogModel = new DefaultTableModel() {
             @Override
             public boolean isCellEditable(int row, int column) {
                 return false;
             }
         };
+
         catalogModel.setColumnIdentifiers(new Object[]{
                 "Section ID", "Course Code", "Course Title", "Credits", "Instructor",
-                "Semester", "Year", "Day", "Time", "Room", "Capacity", "Enrolled", "Available"
+                "Semester", "Room", "Capacity", "Enrolled", "Available"
         });
 
         JTable catalogTable = new JTable(catalogModel);
-        catalogTable.setRowHeight(25);
+        catalogTable.setRowHeight(28);
+        catalogTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        catalogTable.getTableHeader().setFont(new Font("SansSerif", Font.BOLD, 12));
         TableRowSorter<DefaultTableModel> sorter = new TableRowSorter<>(catalogModel);
         catalogTable.setRowSorter(sorter);
 
         JScrollPane scroll = new JScrollPane(catalogTable);
+        scroll.setBorder(BorderFactory.createTitledBorder("Available Sections"));
 
-        // Action buttons
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        // Action buttons panel
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 10));
+
         JButton registerBtn = new JButton("✅ Register for Selected Section");
+        registerBtn.setFont(new Font("SansSerif", Font.BOLD, 13));
         registerBtn.addActionListener(e -> registerForSection(catalogTable, catalogModel));
 
         JButton refreshCatalogBtn = new JButton("🔄 Refresh Catalog");
-        refreshCatalogBtn.addActionListener(e -> loadCourseCatalog(catalogModel, null, null));
+        refreshCatalogBtn.addActionListener(e -> {
+            loadCourseCatalog(catalogModel, null, null);
+            searchField.setText("");
+            semesterCombo.setSelectedIndex(0);
+        });
+
+        JButton viewDetailsBtn = new JButton("ℹ View Section Details");
+        viewDetailsBtn.addActionListener(e -> viewSectionDetails(catalogTable, catalogModel));
 
         buttonPanel.add(registerBtn);
         buttonPanel.add(refreshCatalogBtn);
+        buttonPanel.add(viewDetailsBtn);
+
+        // Add hint label
+        JLabel hintLabel = new JLabel("💡 Tip: Select a section from the table and click 'Register' to enroll");
+        hintLabel.setFont(new Font("SansSerif", Font.ITALIC, 11));
+        hintLabel.setForeground(Color.GRAY);
+        hintLabel.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
 
         searchBtn.addActionListener(e -> {
             String keyword = searchField.getText().trim();
@@ -236,9 +246,18 @@ public class StudentDashboard extends JFrame {
             loadCourseCatalog(catalogModel, keyword, semester);
         });
 
-        panel.add(searchPanel, BorderLayout.NORTH);
+        // Layout
+        JPanel topSection = new JPanel(new BorderLayout());
+        topSection.add(headerLabel, BorderLayout.NORTH);
+        topSection.add(searchPanel, BorderLayout.CENTER);
+
+        JPanel bottomSection = new JPanel(new BorderLayout());
+        bottomSection.add(buttonPanel, BorderLayout.NORTH);
+        bottomSection.add(hintLabel, BorderLayout.SOUTH);
+
+        panel.add(topSection, BorderLayout.NORTH);
         panel.add(scroll, BorderLayout.CENTER);
-        panel.add(buttonPanel, BorderLayout.SOUTH);
+        panel.add(bottomSection, BorderLayout.SOUTH);
 
         // Load initial data
         loadCourseCatalog(catalogModel, null, null);
@@ -249,72 +268,71 @@ public class StudentDashboard extends JFrame {
     private void loadCourseCatalog(DefaultTableModel model, String keyword, String semester) {
         model.setRowCount(0);
 
-        StringBuilder sql = new StringBuilder(
-                "SELECT sec.section_id, c.course_code, c.course_name, c.credits, " +
-                        "COALESCE(instr.user_id, 'TBA') AS instructor_id, " +
-                        "sec.semester, sec.year, sec.day, " +
-                        "CONCAT(sec.start_time, ' - ', sec.end_time) AS time, " +
-                        "sec.room, sec.capacity, " +
-                        "COALESCE(COUNT(e.enrollment_id), 0) AS enrolled " +
-                        "FROM sections sec " +
-                        "JOIN courses c ON sec.course_id = c.course_id " +
-                        "LEFT JOIN instructors instr ON sec.instructor_id = instr.user_id " +
-                        "LEFT JOIN enrollments e ON sec.section_id = e.section_id AND e.status = 'ENROLLED' " +
-                        "WHERE 1=1 "
+        // USE SERVICE LAYER INSTEAD OF DIRECT SQL
+        List<CourseCatalogView> sections = studentService.getCourseCatalog(keyword, semester);
+
+        for (CourseCatalogView section : sections) {
+            Vector<Object> row = new Vector<>();
+            row.add(section.sectionId());
+            row.add(section.courseCode());
+            row.add(section.courseName());
+            row.add(section.credits());
+            row.add(section.instructorId());
+            row.add(section.semester());
+            row.add(section.room());
+            row.add(section.capacity());
+            row.add(section.enrolled());
+            row.add(section.available());
+            model.addRow(row);
+        }
+    }
+
+    private void viewSectionDetails(JTable table, DefaultTableModel model) {
+        int selectedRow = table.getSelectedRow();
+        if (selectedRow == -1) {
+            JOptionPane.showMessageDialog(this,
+                    "Please select a section to view details.",
+                    "No Selection", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+
+        int modelRow = table.convertRowIndexToModel(selectedRow);
+        String sectionId = (String) model.getValueAt(modelRow, 0);
+        String courseCode = (String) model.getValueAt(modelRow, 1);
+        String courseTitle = (String) model.getValueAt(modelRow, 2);
+        int credits = (int) model.getValueAt(modelRow, 3);
+        String instructor = (String) model.getValueAt(modelRow, 4);
+        String semester = (String) model.getValueAt(modelRow, 5);
+        String room = (String) model.getValueAt(modelRow, 6);
+        int capacity = (int) model.getValueAt(modelRow, 7);
+        int enrolled = (int) model.getValueAt(modelRow, 8);
+        int available = (int) model.getValueAt(modelRow, 9);
+
+        String details = String.format(
+                "Section ID: %s\n\n" +
+                        "Course: %s - %s\n" +
+                        "Credits: %d\n\n" +
+                        "Instructor: %s\n" +
+                        "Semester: %s\n" +
+                        "Room: %s\n\n" +
+                        "Enrollment:\n" +
+                        "  Capacity: %d\n" +
+                        "  Enrolled: %d\n" +
+                        "  Available: %d",
+                sectionId, courseCode, courseTitle, credits,
+                instructor, semester, room,
+                capacity, enrolled, available
         );
 
-        if (keyword != null && !keyword.isEmpty()) {
-            sql.append("AND (c.course_code LIKE ? OR c.course_name LIKE ?) ");
-        }
-        if (semester != null && !semester.isEmpty()) {
-            sql.append("AND sec.semester = ? ");
-        }
+        JTextArea textArea = new JTextArea(details);
+        textArea.setEditable(false);
+        textArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
 
-        sql.append("GROUP BY sec.section_id, c.course_code, c.course_name, c.credits, " +
-                "instr.user_id, sec.semester, sec.year, sec.day, sec.start_time, sec.end_time, " +
-                "sec.room, sec.capacity " +
-                "ORDER BY c.course_code, sec.section_id");
+        JScrollPane scrollPane = new JScrollPane(textArea);
+        scrollPane.setPreferredSize(new Dimension(400, 300));
 
-        try (Connection conn = DBConfig.getErpConnection();
-             PreparedStatement ps = conn.prepareStatement(sql.toString())) {
-
-            int paramIndex = 1;
-            if (keyword != null && !keyword.isEmpty()) {
-                String search = "%" + keyword + "%";
-                ps.setString(paramIndex++, search);
-                ps.setString(paramIndex++, search);
-            }
-            if (semester != null && !semester.isEmpty()) {
-                ps.setString(paramIndex++, semester);
-            }
-
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    Vector<Object> row = new Vector<>();
-                    row.add(rs.getString("section_id"));
-                    row.add(rs.getString("course_code"));
-                    row.add(rs.getString("course_name"));
-                    row.add(rs.getInt("credits"));
-                    row.add(rs.getString("instructor_id"));
-                    row.add(rs.getString("semester"));
-                    row.add(rs.getInt("year"));
-                    row.add(rs.getString("day"));
-                    row.add(rs.getString("time"));
-                    row.add(rs.getString("room"));
-                    int capacity = rs.getInt("capacity");
-                    int enrolled = rs.getInt("enrolled");
-                    int available = capacity - enrolled;
-                    row.add(capacity);
-                    row.add(enrolled);
-                    row.add(available);
-                    model.addRow(row);
-                }
-            }
-        } catch (Exception ex) {
-            ex.printStackTrace();
-            JOptionPane.showMessageDialog(this, "Failed to load catalog: " + ex.getMessage(),
-                    "Error", JOptionPane.ERROR_MESSAGE);
-        }
+        JOptionPane.showMessageDialog(this, scrollPane,
+                "Section Details", JOptionPane.INFORMATION_MESSAGE);
     }
 
     // ==================== TIMETABLE TAB ====================
@@ -325,12 +343,13 @@ public class StudentDashboard extends JFrame {
         JLabel label = new JLabel("Your Weekly Schedule");
         label.setFont(new Font("SansSerif", Font.BOLD, 14));
 
-        DefaultTableModel timetableModel = new DefaultTableModel() {
+        timetableModel = new DefaultTableModel() {
             @Override
             public boolean isCellEditable(int row, int column) {
                 return false;
             }
         };
+
         timetableModel.setColumnIdentifiers(new Object[]{
                 "Day", "Time", "Course", "Section", "Room", "Instructor"
         });
@@ -357,37 +376,18 @@ public class StudentDashboard extends JFrame {
     private void loadTimetable(DefaultTableModel model) {
         model.setRowCount(0);
 
-        String sql = "SELECT sec.day, CONCAT(sec.start_time, ' - ', sec.end_time) AS time, " +
-                "CONCAT(c.course_code, ' - ', c.course_name) AS course, " +
-                "sec.section_id, sec.room, COALESCE(instr.user_id, 'TBA') AS instructor_id " +
-                "FROM enrollments e " +
-                "JOIN sections sec ON e.section_id = sec.section_id " +
-                "JOIN courses c ON sec.course_id = c.course_id " +
-                "LEFT JOIN instructors instr ON sec.instructor_id = instr.user_id " +
-                "WHERE e.student_id = ? AND e.status = 'ENROLLED' " +
-                "ORDER BY FIELD(sec.day, 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'), " +
-                "sec.start_time";
+        // USE SERVICE LAYER INSTEAD OF DIRECT SQL
+        List<TimetableView> timetable = studentService.getStudentTimetable(userId);
 
-        try (Connection conn = DBConfig.getErpConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-
-            ps.setString(1, userId);
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    Vector<Object> row = new Vector<>();
-                    row.add(rs.getString("day"));
-                    row.add(rs.getString("time"));
-                    row.add(rs.getString("course"));
-                    row.add(rs.getString("section_id"));
-                    row.add(rs.getString("room"));
-                    row.add(rs.getString("instructor_id"));
-                    model.addRow(row);
-                }
-            }
-        } catch (Exception ex) {
-            ex.printStackTrace();
-            JOptionPane.showMessageDialog(this, "Failed to load timetable: " + ex.getMessage(),
-                    "Error", JOptionPane.ERROR_MESSAGE);
+        for (TimetableView entry : timetable) {
+            Vector<Object> row = new Vector<>();
+            row.add(entry.day());
+            row.add(entry.time());
+            row.add(entry.course());
+            row.add(entry.sectionId());
+            row.add(entry.room());
+            row.add(entry.instructorId());
+            model.addRow(row);
         }
     }
 
@@ -399,14 +399,15 @@ public class StudentDashboard extends JFrame {
         JLabel label = new JLabel("Your Grades");
         label.setFont(new Font("SansSerif", Font.BOLD, 14));
 
-        DefaultTableModel gradesModel = new DefaultTableModel() {
+        gradesModel = new DefaultTableModel() {
             @Override
             public boolean isCellEditable(int row, int column) {
                 return false;
             }
         };
+
         gradesModel.setColumnIdentifiers(new Object[]{
-                "Course Code", "Course Name", "Section", "Component", "Score", "Max Score", "Final Grade"
+                "Course Code", "Course Name", "Section", "Component", "Score", "Final Grade"
         });
 
         JTable gradesTable = new JTable(gradesModel);
@@ -431,143 +432,83 @@ public class StudentDashboard extends JFrame {
     private void loadGrades(DefaultTableModel model) {
         model.setRowCount(0);
 
-        String sql = "SELECT c.course_code, c.course_name, sec.section_id, " +
-                "g.component, g.score, g.max_score, g.final_grade " +
-                "FROM enrollments e " +
-                "JOIN sections sec ON e.section_id = sec.section_id " +
-                "JOIN courses c ON sec.course_id = c.course_id " +
-                "LEFT JOIN grades g ON g.enrollment_id = e.enrollment_id " +
-                "WHERE e.student_id = ? " +
-                "ORDER BY c.course_code, sec.section_id, g.component";
+        // USE SERVICE LAYER INSTEAD OF DIRECT SQL
+        List<GradeView> grades = studentService.getStudentGrades(userId);
 
-        try (Connection conn = DBConfig.getErpConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-
-            ps.setString(1, userId);
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    Vector<Object> row = new Vector<>();
-                    row.add(rs.getString("course_code"));
-                    row.add(rs.getString("course_name"));
-                    row.add(rs.getString("section_id"));
-                    row.add(rs.getString("component") == null ? "N/A" : rs.getString("component"));
-
-                    Object score = rs.getObject("score");
-                    row.add(score == null ? "N/A" : score);
-
-                    Object maxScore = rs.getObject("max_score");
-                    row.add(maxScore == null ? "N/A" : maxScore);
-
-                    row.add(rs.getString("final_grade") == null ? "Pending" : rs.getString("final_grade"));
-                    model.addRow(row);
-                }
-            }
-        } catch (Exception ex) {
-            ex.printStackTrace();
-            JOptionPane.showMessageDialog(this, "Failed to load grades: " + ex.getMessage(),
-                    "Error", JOptionPane.ERROR_MESSAGE);
+        for (GradeView grade : grades) {
+            Vector<Object> row = new Vector<>();
+            row.add(grade.courseCode());
+            row.add(grade.courseName());
+            row.add(grade.sectionId());
+            row.add(grade.component() == null ? "N/A" : grade.component());
+            row.add(grade.score() == null ? "N/A" : grade.score());
+            row.add(grade.finalGrade() == null ? "Pending" : grade.finalGrade());
+            model.addRow(row);
         }
     }
 
     // ==================== ACTIONS ====================
     private void registerForSection(JTable table, DefaultTableModel model) {
-        if (maintenanceMode) {
-            JOptionPane.showMessageDialog(this,
-                    "Cannot register during maintenance mode.",
-                    "Maintenance Mode", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-
+        // Check if a row is selected
         int selectedRow = table.getSelectedRow();
         if (selectedRow == -1) {
             JOptionPane.showMessageDialog(this,
-                    "Please select a section to register.",
-                    "No Selection", JOptionPane.WARNING_MESSAGE);
+                    "⚠ Please select a section from the table first.\n\n" +
+                            "Click on a row to select it, then click Register.",
+                    "No Section Selected", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
         int modelRow = table.convertRowIndexToModel(selectedRow);
         String sectionId = (String) model.getValueAt(modelRow, 0);
-        int available = (int) model.getValueAt(modelRow, 12);
+        String courseCode = (String) model.getValueAt(modelRow, 1);
+        String courseTitle = (String) model.getValueAt(modelRow, 2);
+        int available = (int) model.getValueAt(modelRow, 9);
+        int capacity = (int) model.getValueAt(modelRow, 7);
 
-        if (available <= 0) {
-            JOptionPane.showMessageDialog(this,
-                    "This section is full. No seats available.",
-                    "Section Full", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-
-        // Check for duplicate enrollment
-        if (isDuplicateEnrollment(sectionId)) {
-            JOptionPane.showMessageDialog(this,
-                    "You are already enrolled in this section.",
-                    "Duplicate Enrollment", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
+        // Show confirmation dialog
+        String confirmMessage = String.format(
+                "Are you sure you want to register for:\n\n" +
+                        "Section: %s\n" +
+                        "Course: %s - %s\n" +
+                        "Available Seats: %d / %d\n\n" +
+                        "Click YES to confirm registration.",
+                sectionId, courseCode, courseTitle, available, capacity
+        );
 
         int confirm = JOptionPane.showConfirmDialog(this,
-                "Register for section " + sectionId + "?",
-                "Confirm Registration", JOptionPane.YES_NO_OPTION);
+                confirmMessage,
+                "Confirm Registration",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.QUESTION_MESSAGE);
 
         if (confirm == JOptionPane.YES_OPTION) {
-            if (registerStudent(sectionId)) {
+            // USE SERVICE LAYER INSTEAD OF DIRECT SQL
+            ServiceResult<String> result = studentService.registerForSection(userId, sectionId);
+
+            if (result.isSuccess()) {
                 JOptionPane.showMessageDialog(this,
-                        "Successfully registered for section " + sectionId,
+                        String.format("✅ Registration Successful!\n\n" +
+                                        "You have been enrolled in:\n" +
+                                        "Section: %s\n" +
+                                        "Course: %s - %s\n\n" +
+                                        "Check 'My Enrollments' and 'Timetable' tabs.",
+                                sectionId, courseCode, courseTitle),
                         "Success", JOptionPane.INFORMATION_MESSAGE);
+
+                // Refresh data
                 loadEnrollments();
                 loadCourseCatalog(model, null, null);
+
             } else {
                 JOptionPane.showMessageDialog(this,
-                        "Failed to register. Please try again.",
-                        "Error", JOptionPane.ERROR_MESSAGE);
+                        "❌ " + result.getMessage(),
+                        "Registration Failed", JOptionPane.ERROR_MESSAGE);
             }
-        }
-    }
-
-    private boolean isDuplicateEnrollment(String sectionId) {
-        String sql = "SELECT COUNT(*) FROM enrollments WHERE student_id = ? AND section_id = ? AND status = 'ENROLLED'";
-
-        try (Connection conn = DBConfig.getErpConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-
-            ps.setString(1, userId);
-            ps.setString(2, sectionId);
-
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    return rs.getInt(1) > 0;
-                }
-            }
-        } catch (SQLException ex) {
-            ex.printStackTrace();
-        }
-        return false;
-    }
-
-    private boolean registerStudent(String sectionId) {
-        String sql = "INSERT INTO enrollments (student_id, section_id, status, enrollment_date) VALUES (?, ?, 'ENROLLED', NOW())";
-
-        try (Connection conn = DBConfig.getErpConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-
-            ps.setString(1, userId);
-            ps.setString(2, sectionId);
-            return ps.executeUpdate() > 0;
-
-        } catch (SQLException ex) {
-            ex.printStackTrace();
-            return false;
         }
     }
 
     private void dropSection() {
-        if (maintenanceMode) {
-            JOptionPane.showMessageDialog(this,
-                    "Cannot drop sections during maintenance mode.",
-                    "Maintenance Mode", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-
         int selectedRow = enrollTable.getSelectedRow();
         if (selectedRow == -1) {
             JOptionPane.showMessageDialog(this,
@@ -585,77 +526,55 @@ public class StudentDashboard extends JFrame {
                 "Confirm Drop", JOptionPane.YES_NO_OPTION);
 
         if (confirm == JOptionPane.YES_OPTION) {
-            if (dropEnrollment(sectionId)) {
+            // USE SERVICE LAYER INSTEAD OF DIRECT SQL
+            ServiceResult<String> result = studentService.dropSection(userId, sectionId);
+
+            if (result.isSuccess()) {
                 JOptionPane.showMessageDialog(this,
-                        "Successfully dropped section " + sectionId,
+                        "✅ " + result.getMessage(),
                         "Success", JOptionPane.INFORMATION_MESSAGE);
                 loadEnrollments();
             } else {
                 JOptionPane.showMessageDialog(this,
-                        "Failed to drop section. Please try again.",
+                        "❌ " + result.getMessage(),
                         "Error", JOptionPane.ERROR_MESSAGE);
             }
         }
     }
 
-    private boolean dropEnrollment(String sectionId) {
-        String sql = "UPDATE enrollments SET status = 'DROPPED' WHERE student_id = ? AND section_id = ? AND status = 'ENROLLED'";
-
-        try (Connection conn = DBConfig.getErpConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-
-            ps.setString(1, userId);
-            ps.setString(2, sectionId);
-            return ps.executeUpdate() > 0;
-
-        } catch (SQLException ex) {
-            ex.printStackTrace();
-            return false;
-        }
-    }
-
     private void downloadTranscript() {
-        try (Connection conn = DBConfig.getErpConnection()) {
-            String sql = "SELECT c.course_code, c.course_name, c.credits, " +
-                    "sec.semester, sec.year, g.final_grade " +
-                    "FROM enrollments e " +
-                    "JOIN sections sec ON e.section_id = sec.section_id " +
-                    "JOIN courses c ON sec.course_id = c.course_id " +
-                    "LEFT JOIN grades g ON g.enrollment_id = e.enrollment_id " +
-                    "WHERE e.student_id = ? AND e.status = 'ENROLLED' " +
-                    "ORDER BY sec.year, sec.semester, c.course_code";
+        // USE SERVICE LAYER INSTEAD OF DIRECT SQL
+        List<TranscriptView> transcript = studentService.getTranscript(userId);
 
-            try (PreparedStatement ps = conn.prepareStatement(sql)) {
-                ps.setString(1, userId);
-                try (ResultSet rs = ps.executeQuery()) {
+        if (transcript.isEmpty()) {
+            JOptionPane.showMessageDialog(this,
+                    "No enrollment records found.",
+                    "Empty Transcript", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
 
-                    String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
-                    String file = "transcript_" + username + "_" + timestamp + ".csv";
+        try {
+            String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+            String file = "transcript_" + username + "_" + timestamp + ".csv";
 
-                    try (FileWriter fw = new FileWriter(file)) {
-                        fw.write("Course Code,Course Name,Credits,Semester,Year,Final Grade\n");
-                        while (rs.next()) {
-                            String code = rs.getString("course_code");
-                            String name = rs.getString("course_name");
-                            int credits = rs.getInt("credits");
-                            String semester = rs.getString("semester");
-                            int year = rs.getInt("year");
-                            String grade = rs.getString("final_grade");
+            try (FileWriter fw = new FileWriter(file)) {
+                fw.write("Course Code,Course Name,Credits,Semester,Year,Final Grade\n");
 
-                            fw.write(String.format("%s,%s,%d,%s,%d,%s\n",
-                                    escapeCsv(code),
-                                    escapeCsv(name),
-                                    credits,
-                                    semester,
-                                    year,
-                                    grade == null ? "Pending" : escapeCsv(grade)));
-                        }
-                    }
-                    JOptionPane.showMessageDialog(this,
-                            "Transcript saved as: " + file,
-                            "Success", JOptionPane.INFORMATION_MESSAGE);
+                for (TranscriptView entry : transcript) {
+                    fw.write(String.format("%s,%s,%d,%s,%d,%s\n",
+                            escapeCsv(entry.courseCode()),
+                            escapeCsv(entry.courseName()),
+                            entry.credits(),
+                            entry.semester(),
+                            entry.year(),
+                            entry.finalGrade() == null ? "Pending" : escapeCsv(entry.finalGrade())));
                 }
             }
+
+            JOptionPane.showMessageDialog(this,
+                    "Transcript saved as: " + file,
+                    "Success", JOptionPane.INFORMATION_MESSAGE);
+
         } catch (Exception ex) {
             ex.printStackTrace();
             JOptionPane.showMessageDialog(this,
@@ -674,32 +593,39 @@ public class StudentDashboard extends JFrame {
 
     // ==================== MAINTENANCE MODE ====================
     private void checkMaintenanceMode() {
-        String sql = "SELECT value FROM settings WHERE `key` = 'maintenance_mode'";
+        // USE SERVICE LAYER INSTEAD OF DIRECT SQL
+        boolean maintenanceMode = studentService.isMaintenanceMode();
+        maintenanceBanner.setVisible(maintenanceMode);
+    }
 
-        try (Connection conn = DBConfig.getErpConnection();
-             PreparedStatement ps = conn.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
+        private void refreshAllData() {
+            checkMaintenanceMode();
 
-            if (rs.next()) {
-                String value = rs.getString("value");
-                maintenanceMode = "true".equalsIgnoreCase(value);
-                maintenanceBanner.setVisible(maintenanceMode);
+            // My Enrollments
+            loadEnrollments();
+
+            // Course Catalog (reset filters for global refresh)
+            if (catalogModel != null) {
+                loadCourseCatalog(catalogModel, null, null);
             }
 
-        } catch (Exception ex) {
-            ex.printStackTrace();
+            // Timetable
+            if (timetableModel != null) {
+                loadTimetable(timetableModel);
+            }
+
+            // Grades
+            if (gradesModel != null) {
+                loadGrades(gradesModel);
+            }
+
+            JOptionPane.showMessageDialog(this,
+                    "All data refreshed successfully!",
+                    "Refresh Complete", JOptionPane.INFORMATION_MESSAGE);
         }
-    }
 
-    private void refreshAllData() {
-        checkMaintenanceMode();
-        loadEnrollments();
-        JOptionPane.showMessageDialog(this,
-                "All data refreshed successfully!",
-                "Refresh Complete", JOptionPane.INFORMATION_MESSAGE);
-    }
 
-    // ==================== MAIN (FOR TESTING) ====================
+        // ==================== MAIN (FOR TESTING) ====================
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
             // Replace with actual user_id from your database

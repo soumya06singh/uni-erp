@@ -15,7 +15,6 @@ import java.util.List;
 import java.util.Vector;
 
 public class StudentDashboard extends JFrame {
-
     private final String userId;
     private final String username;
     private final StudentService studentService;

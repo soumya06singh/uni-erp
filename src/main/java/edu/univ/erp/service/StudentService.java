@@ -90,6 +90,10 @@ public class StudentService {
         }
 
         try (Connection conn = DBConfig.getErpConnection()) {
+            if (isPastDropDeadline(conn)) {
+                return ServiceResult.error("Registration deadline has passed. You cannot add courses now.");
+            }
+
 
             // 1) Check section capacity (only ENROLLED count)
             String capacityCheck = """
@@ -485,7 +489,7 @@ public class StudentService {
         return false;
     }
     private boolean isPastDropDeadline(Connection conn) throws SQLException {
-        String sql = "SELECT `value` FROM settings WHERE `key` = 'drop_deadline'";
+        String sql = "SELECT `value` FROM settings WHERE `key` = 'drop_or_add_deadline'";
         try (PreparedStatement ps = conn.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
 

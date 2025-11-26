@@ -20,7 +20,7 @@ import java.sql.ResultSet;
 /**
  * Main login app - cleaned and role-based redirection to dashboards.
  */
-public class MainApp {
+public class        MainApp {
 
     public static void main(String[] args) {
         // Optional: keep system look & feel for native touches
@@ -171,9 +171,11 @@ public class MainApp {
                                 frame.dispose();
                             }
                             case "ADMIN" -> {
-                                // admin dashboard not implemented yet
-                                JOptionPane.showMessageDialog(null, "Admin dashboard not implemented yet.");
+                                AdminDashboard adminDash = new AdminDashboard(uid, uname);
+                                adminDash.setVisible(true);
+                                frame.dispose();
                             }
+
                             default -> {
                                 JOptionPane.showMessageDialog(null, "Unknown role: " + rid);
                             }

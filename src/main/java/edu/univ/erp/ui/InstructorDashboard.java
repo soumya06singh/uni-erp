@@ -51,19 +51,23 @@ public class InstructorDashboard extends JFrame {
 
     private final JLabel lblWelcome = new JLabel();
     private final JLabel lblDepartment = new JLabel("Department: -");
-    private final JLabel lblStats = new JLabel("Stats: -");
-    private final JLabel lblGradebookTitle = new JLabel("Gradebook"); // Dynamic title
+
+    // Replaced the old stats label with a button
+    private final JButton btnViewStats = new PillButton("View Stats");
+    private String currentStatsText = "No data available."; // Stores current stats for the popup
+
+    private final JLabel lblGradebookTitle = new JLabel("Gradebook");
 
     private final JLabel lblMaintenance = new JLabel();
     private volatile boolean maintenanceOn = false;
     private javax.swing.Timer maintenancePollTimer;
 
-    // --- Buttons (All using PillButton) ---
+    // --- Buttons ---
     private final JButton btnRefreshSections = new PillButton("Refresh Sections");
     private final JButton btnLoadRoster = new PillButton("Load Roster");
 
     // Gradebook buttons
-    private final JButton btnBack = new PillButton("← Back"); // New Back Button
+    private final JButton btnBack = new PillButton("← Back");
     private final JButton btnComputeFinal = new PillButton("Compute Final");
     private final JButton btnSave = new PillButton("Save Grades");
     private final JButton btnExport = new PillButton("Export CSV");
@@ -118,28 +122,39 @@ public class InstructorDashboard extends JFrame {
         header.setBackground(Color.WHITE);
         header.setBorder(new EmptyBorder(8,12,12,12));
 
+        // Left Header: Welcome Message
         JPanel titleBlock = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 6));
         titleBlock.setOpaque(false);
         lblWelcome.setFont(TITLE_FONT);
         lblWelcome.setForeground(Color.BLACK);
         lblWelcome.setText("Welcome, " + username);
         titleBlock.add(lblWelcome);
-
-        lblDepartment.setFont(HEADER_FONT);
-        lblDepartment.setForeground(MUTED);
-        titleBlock.add(lblDepartment);
         header.add(titleBlock, BorderLayout.WEST);
 
+        // Right Header: Maintenance + Stats Button + Department
         JPanel rightBlock = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 6));
         rightBlock.setOpaque(false);
-        lblStats.setFont(HEADER_FONT.deriveFont(12f));
-        lblStats.setForeground(MUTED);
-        rightBlock.add(lblStats);
 
+        // Maintenance Label
         lblMaintenance.setFont(HEADER_FONT.deriveFont(Font.BOLD, 12f));
         lblMaintenance.setForeground(new Color(180,20,20));
         lblMaintenance.setVisible(false);
         rightBlock.add(lblMaintenance);
+
+        // Stats Button (Small version of PillButton)
+        btnViewStats.setPreferredSize(new Dimension(100, 30));
+        btnViewStats.setFont(HEADER_FONT.deriveFont(12f));
+        // Only enable this button when looking at grades
+        btnViewStats.setVisible(false);
+        rightBlock.add(btnViewStats);
+
+        // Spacer
+        rightBlock.add(Box.createHorizontalStrut(15));
+
+        // Department Label
+        lblDepartment.setFont(HEADER_FONT.deriveFont(Font.BOLD));
+        lblDepartment.setForeground(MUTED);
+        rightBlock.add(lblDepartment);
 
         header.add(rightBlock, BorderLayout.EAST);
 
@@ -149,7 +164,7 @@ public class InstructorDashboard extends JFrame {
         root.add(header, BorderLayout.NORTH);
         root.add(sep, BorderLayout.CENTER);
 
-        // --- CARD LAYOUT SETUP (The Key Change) ---
+        // --- CARD LAYOUT SETUP ---
         cardLayout = new CardLayout();
         mainCardPanel = new JPanel(cardLayout);
         mainCardPanel.setOpaque(false);
@@ -162,12 +177,10 @@ public class InstructorDashboard extends JFrame {
         JPanel pnlGradebookView = createGradebookView();
         mainCardPanel.add(pnlGradebookView, VIEW_GRADES);
 
-        // Add the card panel to the center
         root.add(mainCardPanel, BorderLayout.CENTER);
 
         // --- Actions ---
 
-        // Sections View Actions
         btnRefreshSections.addActionListener((ActionEvent e) -> loadSections());
 
         btnLoadRoster.addActionListener((ActionEvent e) -> {
@@ -180,22 +193,26 @@ public class InstructorDashboard extends JFrame {
             String sectionId = (String) sectionsModel.getValueAt(modelRow, 0);
             String courseName = (String) sectionsModel.getValueAt(modelRow, 2);
 
-            // Load data AND switch view
             lblGradebookTitle.setText("Gradebook: " + courseName + " (" + sectionId + ")");
             loadRosterForSection(sectionId);
+
+            // Switch views and show stats button
             cardLayout.show(mainCardPanel, VIEW_GRADES);
+            btnViewStats.setVisible(true);
         });
 
         // Grades View Actions
         btnBack.addActionListener(e -> {
-            // Switch back to sections
             cardLayout.show(mainCardPanel, VIEW_SECTIONS);
-            lblStats.setText("Stats: -"); // Reset stats text
+            btnViewStats.setVisible(false); // Hide stats button on sections page
         });
 
         btnComputeFinal.addActionListener((ActionEvent e) -> computeFinalAndUpdateTable());
         btnSave.addActionListener((ActionEvent e) -> saveGradesToDB());
         btnExport.addActionListener((ActionEvent e) -> exportGradesCSV());
+
+        // Stats Button Action
+        btnViewStats.addActionListener(e -> showStatsWindow());
 
         // Maintenance timer
         refreshMaintenanceBanner();
@@ -205,6 +222,37 @@ public class InstructorDashboard extends JFrame {
         addWindowListener(new java.awt.event.WindowAdapter() {
             @Override public void windowActivated(java.awt.event.WindowEvent e) { refreshMaintenanceBanner(); }
         });
+    }
+
+    // --- Helper: Show Stats Window ---
+    private void showStatsWindow() {
+        JDialog statsDialog = new JDialog(this, "Section Statistics", true);
+        statsDialog.setSize(400, 250);
+        statsDialog.setLocationRelativeTo(this);
+        statsDialog.setLayout(new BorderLayout());
+        statsDialog.getContentPane().setBackground(Color.WHITE);
+
+        // Clean styling for the stats text
+        JTextArea textArea = new JTextArea(currentStatsText);
+        textArea.setEditable(false);
+        textArea.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        textArea.setBorder(new EmptyBorder(20, 20, 20, 20));
+        textArea.setLineWrap(true);
+        textArea.setWrapStyleWord(true);
+
+        statsDialog.add(textArea, BorderLayout.CENTER);
+
+        JButton closeBtn = new PillButton("Close");
+        closeBtn.setPreferredSize(new Dimension(80, 35));
+        closeBtn.addActionListener(e -> statsDialog.dispose());
+
+        JPanel btnPanel = new JPanel();
+        btnPanel.setOpaque(false);
+        btnPanel.setBorder(new EmptyBorder(10, 10, 10, 10));
+        btnPanel.add(closeBtn);
+
+        statsDialog.add(btnPanel, BorderLayout.SOUTH);
+        statsDialog.setVisible(true);
     }
 
     // --- View Creation Methods ---
@@ -224,13 +272,11 @@ public class InstructorDashboard extends JFrame {
         title.setFont(HEADER_FONT.deriveFont(Font.BOLD));
         title.setBorder(new EmptyBorder(6,6,6,6));
 
-        // Buttons
         JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 8));
         btnPanel.setOpaque(false);
         btnPanel.add(btnRefreshSections);
         btnPanel.add(btnLoadRoster);
 
-        // Logout Button (Bottom Right of Sections View)
         JButton logoutBtn = createLogoutButton();
         JPanel bottomContainer = new JPanel(new BorderLayout());
         bottomContainer.setOpaque(false);
@@ -252,7 +298,6 @@ public class InstructorDashboard extends JFrame {
         JPanel pnl = new JPanel(new BorderLayout(8, 8));
         pnl.setOpaque(false);
 
-        // Table Setup
         tblGrades.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         styleTable(tblGrades, false);
         installNumericEditors();
@@ -260,12 +305,11 @@ public class InstructorDashboard extends JFrame {
         lblGradebookTitle.setFont(HEADER_FONT.deriveFont(Font.BOLD));
         lblGradebookTitle.setBorder(new EmptyBorder(6,6,6,6));
 
-        // Buttons
         JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 8));
         btnPanel.setOpaque(false);
 
-        btnPanel.add(btnBack); // Add Back button first
-        btnPanel.add(Box.createHorizontalStrut(20)); // Spacer
+        btnPanel.add(btnBack);
+        btnPanel.add(Box.createHorizontalStrut(20));
         btnPanel.add(btnComputeFinal);
         btnPanel.add(btnSave);
         btnPanel.add(btnExport);
@@ -345,10 +389,6 @@ public class InstructorDashboard extends JFrame {
     }
 
     // ----- data / actions -----
-
-    private void setStatsText(String text) {
-        SwingUtilities.invokeLater(() -> lblStats.setText(text));
-    }
 
     private void loadInstructorDepartment() {
         new SwingWorker<String, Void>() {
@@ -433,8 +473,20 @@ public class InstructorDashboard extends JFrame {
                             countFinal++; if (r.finalScore() >= 50.0) pass++;
                         }
                     }
-                    if (countFinal > 0) lblStats.setText(String.format("Avg: %.2f | Min: %.2f | Max: %.2f | Pass: %.1f%%", sumFinal / countFinal, minFinal, maxFinal, pass * 100.0 / countFinal));
-                    else lblStats.setText("No final grades yet");
+                    // Format stats string for the popup
+                    if (countFinal > 0) {
+                        currentStatsText = String.format(
+                                "Class Performance Summary:\n\n" +
+                                        "Total Graded Students: %d\n" +
+                                        "Average Score: %.2f\n" +
+                                        "Highest Score: %.2f\n" +
+                                        "Lowest Score: %.2f\n" +
+                                        "Pass Rate: %.1f%% (Score >= 50.0)",
+                                countFinal, sumFinal / countFinal, maxFinal, minFinal, pass * 100.0 / countFinal
+                        );
+                    } else {
+                        currentStatsText = "No final grades computed yet.";
+                    }
                 } catch (Exception ex) {
                     ex.printStackTrace();
                     JOptionPane.showMessageDialog(InstructorDashboard.this, "Error loading roster: " + ex.getMessage(), "DB Error", JOptionPane.ERROR_MESSAGE);
@@ -469,8 +521,20 @@ public class InstructorDashboard extends JFrame {
             Double f = toDouble(gradeModel.getValueAt(r, 7));
             if (f != null) { sum += f; min = Math.min(min, f); max = Math.max(max, f); count++; if (f >= 50.0) pass++; }
         }
-        if (count > 0) lblStats.setText(String.format("Avg: %.2f | Min: %.2f | Max: %.2f | Pass: %.1f%%", sum / count, min, max, pass * 100.0 / count));
-        else lblStats.setText("No final grades yet");
+        // Update stats string
+        if (count > 0) {
+            currentStatsText = String.format(
+                    "Class Performance Summary:\n\n" +
+                            "Total Graded Students: %d\n" +
+                            "Average Score: %.2f\n" +
+                            "Highest Score: %.2f\n" +
+                            "Lowest Score: %.2f\n" +
+                            "Pass Rate: %.1f%% (Score >= 50.0)",
+                    count, sum / count, max, min, pass * 100.0 / count
+            );
+        } else {
+            currentStatsText = "No final grades computed yet.";
+        }
     }
 
     private void saveGradesToDB() {
@@ -513,9 +577,7 @@ public class InstructorDashboard extends JFrame {
         if (gradeModel.getRowCount() == 0) { JOptionPane.showMessageDialog(this, "No grades to export."); return; }
 
         String defaultSection = "unknown";
-        // Try to get current section from label if available
         if (lblGradebookTitle.getText().contains("(")) {
-            // Very basic extraction just for filename
             defaultSection = "grades";
         }
 

@@ -30,7 +30,14 @@ public class InstructorDashboard extends JFrame {
     private final String username;
 
     private final DefaultTableModel sectionsModel = new DefaultTableModel();
-    private final JTable tblSections = new JTable(sectionsModel);
+    private final JTable tblSections = new JTable(sectionsModel) {
+        @Override
+        public boolean isCellEditable(int row, int column) {
+            // Never allow editing of the sections table from UI
+            return false;
+        }
+    };
+
 
     private final DefaultTableModel gradeModel = new DefaultTableModel();
     // We'll instantiate tblGrades as an anonymous subclass below so isCellEditable can check maintenanceOn
@@ -96,6 +103,25 @@ public class InstructorDashboard extends JFrame {
                 "Section ID", "Course Code", "Title", "Semester", "Year", "Day", "Start", "End", "Room", "Capacity"
         });
         tblSections.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        // Warn user if they attempt to edit during maintenance
+        tblGrades.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mousePressed(java.awt.event.MouseEvent e) {
+                int row = tblGrades.rowAtPoint(e.getPoint());
+                int col = tblGrades.columnAtPoint(e.getPoint());
+
+                // Editable columns = 4,5,6   (Quiz, Midterm, Endsem)
+                if (col >= 4 && col <= 6 && maintenanceOn) {
+                    JOptionPane.showMessageDialog(
+                            InstructorDashboard.this,
+                            "System is in maintenance mode. Editing is disabled.",
+                            "Maintenance Mode",
+                            JOptionPane.WARNING_MESSAGE
+                    );
+                }
+            }
+        });
+
 
         JScrollPane spSections = new JScrollPane(tblSections);
 
@@ -253,6 +279,7 @@ public class InstructorDashboard extends JFrame {
 
     private boolean isMaintenanceMode() {
         // Try flexible lookup: supports either `value` or `setting_value` column.
+        //IMP! CHANGE KEY->SETTING_KEY
         String sqlTryValue = "SELECT `value` as v FROM settings WHERE `key` = 'maintenance_mode' LIMIT 1";
         String sqlTrySettingValue = "SELECT setting_value as v FROM settings WHERE `key` = 'maintenance_mode' LIMIT 1";
 
@@ -510,7 +537,10 @@ public class InstructorDashboard extends JFrame {
 
     private void saveGradesToDB() {
         int sel = tblSections.getSelectedRow();
-        if (sel < 0) { JOptionPane.showMessageDialog(this, "Select a section first."); return; }
+        if (sel < 0) {
+            JOptionPane.showMessageDialog(this, "Select a section first.");
+            return;
+        }
         String sectionId = (String) sectionsModel.getValueAt(sel, 0);
 
         if (!isInstructorOwnerOfSection(sectionId)) {
@@ -525,13 +555,17 @@ public class InstructorDashboard extends JFrame {
         new SwingWorker<Void, Void>() {
             @Override
             protected Void doInBackground() throws Exception {
-                try (Connection conn = DBConfig.getErpConnection()) {
+                Connection conn = null;
+                try {
+                    conn = DBConfig.getErpConnection();
                     conn.setAutoCommit(false);
+
                     String upsertSql = """
-                            INSERT INTO grades (grade_id, enrollment_id, component, score, weight)
-                            VALUES (UUID(), ?, ?, ?, ?)
-                            ON DUPLICATE KEY UPDATE score = VALUES(score), weight = VALUES(weight)
-                            """;
+                        INSERT INTO grades (grade_id, enrollment_id, component, score, weight)
+                        VALUES (UUID(), ?, ?, ?, ?)
+                        ON DUPLICATE KEY UPDATE score = VALUES(score), weight = VALUES(weight)
+                        """;
+
                     try (PreparedStatement ps = conn.prepareStatement(upsertSql)) {
                         for (int r = 0; r < gradeModel.getRowCount(); r++) {
                             String enrollmentId = (String) gradeModel.getValueAt(r, 0);
@@ -540,6 +574,7 @@ public class InstructorDashboard extends JFrame {
                             Double end = parseDoubleOrNull(gradeModel.getValueAt(r, 6));
                             Double finalScore = parseDoubleOrNull(gradeModel.getValueAt(r, 7));
 
+                            // QUIZ
                             if (quiz != null) {
                                 ps.setString(1, enrollmentId);
                                 ps.setString(2, "QUIZ");
@@ -547,6 +582,7 @@ public class InstructorDashboard extends JFrame {
                                 ps.setInt(4, (int) Math.round(W_QUIZ * 100));
                                 ps.addBatch();
                             }
+                            // MIDTERM
                             if (mid != null) {
                                 ps.setString(1, enrollmentId);
                                 ps.setString(2, "MIDTERM");
@@ -554,6 +590,7 @@ public class InstructorDashboard extends JFrame {
                                 ps.setInt(4, (int) Math.round(W_MID * 100));
                                 ps.addBatch();
                             }
+                            // ENDSEM
                             if (end != null) {
                                 ps.setString(1, enrollmentId);
                                 ps.setString(2, "ENDSEM");
@@ -561,6 +598,7 @@ public class InstructorDashboard extends JFrame {
                                 ps.setInt(4, (int) Math.round(W_END * 100));
                                 ps.addBatch();
                             }
+                            // FINAL
                             if (finalScore != null) {
                                 ps.setString(1, enrollmentId);
                                 ps.setString(2, "FINAL");
@@ -569,57 +607,118 @@ public class InstructorDashboard extends JFrame {
                                 ps.addBatch();
                             }
                         }
+
+                        // execute all batches
                         ps.executeBatch();
                     }
+
+                    // if we reach here, commit
                     conn.commit();
+
                 } catch (SQLException ex) {
+                    // rollback if anything went wrong
+                    if (conn != null) {
+                        try {
+                            conn.rollback();
+                        } catch (SQLException rbe) {
+                            rbe.printStackTrace();
+                        }
+                    }
                     ex.printStackTrace();
-                    SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(InstructorDashboard.this, "Error saving grades: " + ex.getMessage(), "DB Error", JOptionPane.ERROR_MESSAGE));
+                    final String msg = ex.getMessage();
+                    SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(InstructorDashboard.this,
+                            "Error saving grades: " + msg, "DB Error", JOptionPane.ERROR_MESSAGE));
+                } finally {
+                    if (conn != null) {
+                        try {
+                            conn.close();
+                        } catch (SQLException cerr) {
+                            cerr.printStackTrace();
+                        }
+                    }
                 }
                 return null;
             }
 
             @Override
             protected void done() {
-                JOptionPane.showMessageDialog(InstructorDashboard.this, "Grades saved.");
-                recalculateStatsFromTable();
+                SwingUtilities.invokeLater(() -> {
+                    JOptionPane.showMessageDialog(InstructorDashboard.this, "Grades saved.");
+                    recalculateStatsFromTable();
+                });
             }
         }.execute();
     }
+
 
     private void exportGradesCSV() {
         if (gradeModel.getRowCount() == 0) {
             JOptionPane.showMessageDialog(this, "No grades to export.");
             return;
         }
+
+        // Create sensible default filename using selected section or timestamp
+        String defaultSection = "all";
+        int sel = tblSections.getSelectedRow();
+        if (sel >= 0) {
+            Object secObj = sectionsModel.getValueAt(sel, 0);
+            if (secObj != null) defaultSection = secObj.toString();
+        }
+        String timestamp = java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")
+                .format(java.time.LocalDateTime.now());
+        String defaultName = String.format("grades_%s_%s.csv", defaultSection, timestamp);
+
         JFileChooser chooser = new JFileChooser();
         chooser.setDialogTitle("Save grades CSV");
+        chooser.setSelectedFile(new java.io.File(defaultName));
         chooser.setFileFilter(new FileNameExtensionFilter("CSV files", "csv"));
-        int sel = chooser.showSaveDialog(this);
-        if (sel != JFileChooser.APPROVE_OPTION) return;
+
+        int userChoice = chooser.showSaveDialog(this);
+        if (userChoice != JFileChooser.APPROVE_OPTION) return;
+
         String path = chooser.getSelectedFile().getAbsolutePath();
         if (!path.toLowerCase().endsWith(".csv")) path += ".csv";
 
+        // Helper to escape CSV fields per RFC-ish rules: wrap in " and double-up internal quotes
+        java.util.function.Function<String,String> esc = s -> {
+            if (s == null) return "";
+            String str = s;
+            // convert to single-line representation for null/spaces
+            if (str.contains("\"") || str.contains(",") || str.contains("\n") || str.contains("\r")) {
+                str = str.replace("\"", "\"\"");
+                return "\"" + str + "\"";
+            } else {
+                return str;
+            }
+        };
+
         try (PrintWriter pw = new PrintWriter(new FileWriter(path))) {
+            // write header
             for (int c = 0; c < gradeModel.getColumnCount(); c++) {
-                pw.print(gradeModel.getColumnName(c));
+                pw.print(esc.apply(gradeModel.getColumnName(c)));
                 if (c < gradeModel.getColumnCount() - 1) pw.print(",");
             }
             pw.println();
+
+            // write rows
             for (int r = 0; r < gradeModel.getRowCount(); r++) {
                 for (int c = 0; c < gradeModel.getColumnCount(); c++) {
                     Object v = gradeModel.getValueAt(r, c);
-                    pw.print(v == null ? "" : v.toString());
+                    String cell = v == null ? "" : v.toString();
+                    pw.print(esc.apply(cell));
                     if (c < gradeModel.getColumnCount() - 1) pw.print(",");
                 }
                 pw.println();
             }
+            pw.flush();
+
             JOptionPane.showMessageDialog(this, "CSV exported to: " + path);
         } catch (Exception ex) {
             ex.printStackTrace();
             JOptionPane.showMessageDialog(this, "Error exporting CSV: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
+
 
     @Override
     public void dispose() {

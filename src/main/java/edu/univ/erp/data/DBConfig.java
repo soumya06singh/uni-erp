@@ -6,7 +6,13 @@ import java.sql.SQLException;
 import java.sql.Statement;
 
 /**
- * Manages database connection configuration for both Auth DB and ERP DB.
+ * DBConfig - provides connections to auth_db and erp_db.
+ *
+ * Important:
+ * - Java's canonical charset name is "UTF-8" (not "utf8mb4").
+ * - We set the JDBC connection to use "UTF-8" and then tell MySQL
+ *   the session character_set / collation to utf8mb4 so the server
+ *   uses 4-byte UTF-8 internally (emoji, etc.).
  */
 public class DBConfig {
 
@@ -29,12 +35,13 @@ public class DBConfig {
         }
     }
 
-    // --------------------------
-    // MAIN CONNECTION CREATOR
-    // --------------------------
     public static Connection getConnection(String dbName) throws SQLException {
+        /*
+         * Use Java's canonical encoding name "UTF-8" here.
+         * We will still tell the server to use utf8mb4 for the session.
+         */
         String url = String.format(
-                "jdbc:mysql://%s:%d/%s?serverTimezone=UTC&useSSL=false&useUnicode=true&characterEncoding=utf8mb4",
+                "jdbc:mysql://%s:%d/%s?serverTimezone=UTC&useSSL=false&useUnicode=true&characterEncoding=UTF-8",
                 HOST, PORT, dbName
         );
 
@@ -43,9 +50,6 @@ public class DBConfig {
         return conn;
     }
 
-    // --------------------------
-    // AUTH + ERP CONNECTIONS
-    // --------------------------
     public static Connection getAuthConnection() throws SQLException {
         return getConnection(AUTH_DB_NAME);
     }
@@ -54,20 +58,18 @@ public class DBConfig {
         return getConnection(ERP_DB_NAME);
     }
 
-    // --------------------------
-    // FIX: Set session collation to utf8mb4_unicode_ci
-    // --------------------------
+    /**
+     * Instruct the server session to use utf8mb4 + a utf8mb4 collation.
+     * This keeps comparisons and storage using 4-byte UTF-8 while Java
+     * uses the canonical UTF-8 charset.
+     */
     private static void applyUtf8mb4Session(Connection conn) {
         try (Statement st = conn.createStatement()) {
-
-            // Makes communication use utf8mb4
+            // tell server we want utf8mb4 results and utf8mb4 collation for comparisons
             st.execute("SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci");
-
-            // Ensures SQL comparisons use the same collation
             st.execute("SET collation_connection = utf8mb4_unicode_ci");
-
         } catch (SQLException ex) {
-            System.err.println("Warning: Failed to apply utf8mb4 session settings: " + ex.getMessage());
+            System.err.println("Warning: failed to apply utf8mb4 session settings: " + ex.getMessage());
         }
     }
 }

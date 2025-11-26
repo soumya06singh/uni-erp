@@ -13,7 +13,6 @@ public class DBConfig {
     private static final String HOST = "localhost";
     private static final int PORT = 3306;
 
-    // CHANGE THESE to match your local MySQL configuration!
     private static final String DB_USER = "root";
     private static final String DB_PASS = "soumya2006"; // <--- **CHANGE THIS!**
 

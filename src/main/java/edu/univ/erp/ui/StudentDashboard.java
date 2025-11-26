@@ -598,42 +598,30 @@ public class StudentDashboard extends JFrame {
         maintenanceBanner.setVisible(maintenanceMode);
     }
 
-        private void refreshAllData() {
-            checkMaintenanceMode();
+    private void refreshAllData() {
+        checkMaintenanceMode();
 
-            // My Enrollments
-            loadEnrollments();
+        // My Enrollments
+        loadEnrollments();
 
-            // Course Catalog (reset filters for global refresh)
-            if (catalogModel != null) {
-                loadCourseCatalog(catalogModel, null, null);
-            }
-
-            // Timetable
-            if (timetableModel != null) {
-                loadTimetable(timetableModel);
-            }
-
-            // Grades
-            if (gradesModel != null) {
-                loadGrades(gradesModel);
-            }
-
-            JOptionPane.showMessageDialog(this,
-                    "All data refreshed successfully!",
-                    "Refresh Complete", JOptionPane.INFORMATION_MESSAGE);
+        // Course Catalog (reset filters for global refresh)
+        if (catalogModel != null) {
+            loadCourseCatalog(catalogModel, null, null);
         }
 
+        // Timetable
+        if (timetableModel != null) {
+            loadTimetable(timetableModel);
+        }
 
-        // ==================== MAIN (FOR TESTING) ====================
-    public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> {
-            // Replace with actual user_id from your database
-            StudentDashboard dashboard = new StudentDashboard(
-                    "33ea148a-c4c8-11f0-bc78-00090faa0001",
-                    "stu1001"
-            );
-            dashboard.setVisible(true);
-        });
+        // Grades
+        if (gradesModel != null) {
+            loadGrades(gradesModel);
+        }
+
+        JOptionPane.showMessageDialog(this,
+                "All data refreshed successfully!",
+                "Refresh Complete", JOptionPane.INFORMATION_MESSAGE);
     }
 }
+

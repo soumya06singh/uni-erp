@@ -24,7 +24,7 @@ public class HashUtil{
     }
 
     public static void main(String[] args) {
-        String password = "password123";   // <-- HARD-CODED PASSWORD
+        String password = "password123";   // <-- HARD-CODED PASSWORD FOR EVERY ENTRY
         String hash = hashPassword(password);
 
         System.out.println("Plain Password: " + password);

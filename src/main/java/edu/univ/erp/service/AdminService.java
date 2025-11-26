@@ -112,6 +112,7 @@ public class AdminService {
         }
     }
 
+
     /**
      * Add a new instructor
      */
@@ -124,7 +125,7 @@ public class AdminService {
             // 1. Insert into auth_db
             try (Connection authConn = DBConfig.getAuthConnection()) {
                 String authSql = "INSERT INTO users_auth (user_id, username, role, password_hash, status, last_login) " +
-                        "VALUES (?, ?, 'ADMIN', ?, 'ACTIVE', NULL)";
+                        "VALUES (?, ?, 'INSTRUCTOR', ?, 'ACTIVE', NULL)";
 
 
                 try (PreparedStatement ps = authConn.prepareStatement(authSql)) {
@@ -634,4 +635,81 @@ public class AdminService {
 
         return instructors;
     }
+    // ==================== UPDATE SECTION ====================
+    public ServiceResult<String> updateSection(String sectionId, String instructorId, String semester,
+                                               int year, String day, String startTime, String endTime,
+                                               String room, int capacity) {
+        String sql = "UPDATE sections SET instructor_id = ?, semester = ?, year = ?, day = ?, " +
+                "start_time = ?, end_time = ?, room = ?, capacity = ? WHERE section_id = ?";
+
+        try (Connection conn = DBConfig.getErpConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setString(1, instructorId);
+            ps.setString(2, semester);
+            ps.setInt(3, year);
+            ps.setString(4, day);
+            ps.setString(5, startTime);
+            ps.setString(6, endTime);
+            ps.setString(7, room);
+            ps.setInt(8, capacity);
+            ps.setString(9, sectionId);
+
+            int rows = ps.executeUpdate();
+            if (rows > 0) {
+                return ServiceResult.success("Section updated successfully!");
+            } else {
+                return ServiceResult.error("Section not found");
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return ServiceResult.error("Failed to update section: " + e.getMessage());
+        }
+    }
+
+    // ==================== GET SETTING VALUE ====================
+    public String getSettingValue(String key) {
+        String sql = "SELECT `value` FROM settings WHERE `key` = ?";
+
+        try (Connection conn = DBConfig.getErpConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setString(1, key);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getString("value");
+                }
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return "Not Set";
+    }
+
+    // ==================== UPDATE SETTING ====================
+    public ServiceResult<String> updateSetting(String key, String value) {
+        String sql = "UPDATE settings SET `value` = ?, updated_at = NOW() WHERE `key` = ?";
+
+        try (Connection conn = DBConfig.getErpConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setString(1, value);
+            ps.setString(2, key);
+
+            int rows = ps.executeUpdate();
+            if (rows > 0) {
+                return ServiceResult.success("Setting updated successfully!");
+            } else {
+                return ServiceResult.error("Setting not found");
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return ServiceResult.error("Failed to update setting: " + e.getMessage());
+        }
+    }
+
 }

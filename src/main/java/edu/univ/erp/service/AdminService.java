@@ -401,14 +401,27 @@ public class AdminService {
     }
 
     // ==================== SECTION MANAGEMENT ====================
+    private String formatTime(String time) {
+        if (time == null) return null;
+        if (time.matches("^\\d{2}:\\d{2}$")) return time; // already fine
+        if (time.matches("^\\d{2}:\\d{2}:\\d{2}$")) return time.substring(0, 5); // trim seconds
 
-    /**
-     * Add a new section
-     */
+        try {
+            java.time.LocalTime t = java.time.LocalTime.parse(time);
+            return t.toString().substring(0, 5); // ensure HH:MM only
+        } catch (Exception e) {
+            return time; // fallback but avoids crash
+        }
+    }
+
     public ServiceResult<String> addSection(int courseId, String instructorId, String semester, int year,
                                             String day, String startTime, String endTime, String room, int capacity) {
-        // Generate section_id (e.g., CS101-F24-01)
+
         String sectionId = generateSectionId(courseId, semester, year);
+
+        // ⭐ FIX: Normalize input before DB insert
+        String cleanStart = formatTime(startTime);
+        String cleanEnd   = formatTime(endTime);
 
         String sql = "INSERT INTO sections (section_id, course_id, instructor_id, semester, year, day, start_time, end_time, room, capacity) " +
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
@@ -422,8 +435,8 @@ public class AdminService {
             ps.setString(4, semester);
             ps.setInt(5, year);
             ps.setString(6, day);
-            ps.setString(7, startTime);
-            ps.setString(8, endTime);
+            ps.setString(7, cleanStart); // <-- FIXED
+            ps.setString(8, cleanEnd);   // <-- FIXED
             ps.setString(9, room);
             ps.setInt(10, capacity);
             ps.executeUpdate();

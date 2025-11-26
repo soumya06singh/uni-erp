@@ -144,7 +144,35 @@ public class InstructorService {
         }
         return out;
     }
+    private Double parseDoubleOrNull(Object o) {
+        if (o == null) return null;
+        if (o instanceof Number) return ((Number) o).doubleValue();
+        try {
+            String s = o.toString().trim();
+            if (s.isEmpty()) return null;
+            return Double.parseDouble(s);
+        } catch (NumberFormatException ex) {
+            return null;
+        }
+    }
 
+    /**
+     * Save a batch of grade rows (upsert)
+     * Expects a list of GradeRow built from the UI.
+     */
+    /**
+     * Save a batch of grade rows (upsert)
+     * Expects a list of GradeRow built from the UI.
+     */
+
+
+       /**
+     * Try common settings column variants to detect maintenance mode.
+     */
+    /**
+     * Save a batch of grade rows (upsert)
+     * Expects a list of GradeRow built from the UI.
+     */
     /**
      * Save a batch of grade rows (upsert)
      * Expects a list of GradeRow built from the UI.
@@ -153,10 +181,10 @@ public class InstructorService {
         if (grades == null || grades.isEmpty()) return;
 
         String upsertSql = """
-                INSERT INTO grades (grade_id, enrollment_id, component, score, weight)
-                VALUES (UUID(), ?, ?, ?, ?)
-                ON DUPLICATE KEY UPDATE score = VALUES(score), weight = VALUES(weight)
-                """;
+INSERT INTO grades (enrollment_id, component, score, max_score)
+VALUES (?, ?, ?, ?)
+ON DUPLICATE KEY UPDATE score = VALUES(score), max_score = VALUES(max_score)
+""";
 
         try (Connection conn = DBConfig.getErpConnection();
              PreparedStatement ps = conn.prepareStatement(upsertSql)) {
@@ -167,7 +195,9 @@ public class InstructorService {
                     ps.setString(2, g.component());
                     if (g.score() == null) ps.setNull(3, Types.DOUBLE);
                     else ps.setDouble(3, g.score());
-                    ps.setInt(4, g.weight());
+
+                    // All scores are out of 100
+                    ps.setInt(4, 100);
                     ps.addBatch();
                 }
                 ps.executeBatch();
@@ -178,10 +208,6 @@ public class InstructorService {
             }
         }
     }
-
-    /**
-     * Try common settings column variants to detect maintenance mode.
-     */
     public boolean isMaintenanceMode() {
         String[][] combos = new String[][] {
                 {"`key`", "`value`"},

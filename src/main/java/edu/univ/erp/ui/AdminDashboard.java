@@ -81,9 +81,18 @@ public class AdminDashboard extends JFrame {
 
         JButton logoutBtn = new JButton("🚪 Logout");
         logoutBtn.addActionListener(e -> {
-            int confirm = JOptionPane.showConfirmDialog(this, "Are you sure you want to logout?");
+            int confirm = JOptionPane.showConfirmDialog(
+                    this,
+                    "Are you sure you want to logout?",
+                    "Confirm Logout",
+                    JOptionPane.YES_NO_OPTION,
+                    JOptionPane.QUESTION_MESSAGE
+            );
             if (confirm == JOptionPane.YES_OPTION) {
-                dispose();
+                SwingUtilities.invokeLater(() -> {
+                    MainApp.main(null);  // 🔥 go back to login window
+                });
+                dispose(); // close student dashboard
             }
         });
 
@@ -701,6 +710,18 @@ public class AdminDashboard extends JFrame {
             if (result.isSuccess()) loadSections();
         }
     }
+    // Ensures HH:MM only
+    private String cleanTime(String t) {
+        if (t == null) return "";
+        if (t.matches("^\\d{2}:\\d{2}$")) return t; // already ok
+        if (t.matches("^\\d{2}:\\d{2}:\\d{2}$")) return t.substring(0, 5); // drop seconds
+        try {
+            return java.time.LocalTime.parse(t).toString().substring(0, 5);
+        } catch (Exception e) {
+            return t; // fallback
+        }
+    }
+
 
     // ==================== EDIT SECTION DIALOG ====================
     private void showEditSectionDialog() {
@@ -722,8 +743,8 @@ public class AdminDashboard extends JFrame {
 
         // Parse start and end time
         String[] times = currentTime.split(" - ");
-        String startTime = times.length > 0 ? times[0] : "09:00";
-        String endTime = times.length > 1 ? times[1] : "10:00";
+        String startTime = times.length > 0 ? cleanTime(times[0]) : "09:00";
+        String endTime = times.length > 1 ? cleanTime(times[1]) : "10:00";
 
         var instructors = adminService.getAllInstructors();
 
@@ -871,8 +892,20 @@ public class AdminDashboard extends JFrame {
             JOptionPane.showMessageDialog(this, "Please select a section to delete!");
             return;
         }
-
         String sectionId = (String) sectionModel.getValueAt(row, 0);
+        int enrolled = (int) sectionModel.getValueAt(row, 9); // column 9 = enrolled count
+
+        // 🚫 Prevent deletion if students are enrolled
+        if (enrolled > 0) {
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Cannot delete this section because " + enrolled + " student(s) are still enrolled.\n" +
+                            "Please drop or move the students first.",
+                    "Delete Blocked",
+                    JOptionPane.WARNING_MESSAGE
+            );
+            return;
+        }
 
         int confirm = JOptionPane.showConfirmDialog(this,
                 "Delete section: " + sectionId + "?");

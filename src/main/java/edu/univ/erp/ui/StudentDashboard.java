@@ -91,7 +91,22 @@ public class StudentDashboard extends JFrame {
         transcriptBtn.addActionListener(e -> downloadTranscript());
 
         JButton logoutBtn = new JButton("🚪 Logout");
-        logoutBtn.addActionListener(e -> dispose());
+        logoutBtn.addActionListener(e -> {
+            int confirm = JOptionPane.showConfirmDialog(
+                    this,
+                    "Are you sure you want to logout?",
+                    "Confirm Logout",
+                    JOptionPane.YES_NO_OPTION,
+                    JOptionPane.QUESTION_MESSAGE
+            );
+            if (confirm == JOptionPane.YES_OPTION) {
+                SwingUtilities.invokeLater(() -> {
+                    MainApp.main(null);  // 🔥 go back to login window
+                });
+                dispose(); // close student dashboard
+            }
+        });
+
 
         bottomPanel.add(refreshBtn);
         bottomPanel.add(transcriptBtn);

@@ -253,8 +253,8 @@ public class InstructorDashboard extends JFrame {
 
     private boolean isMaintenanceMode() {
         // Try flexible lookup: supports either `value` or `setting_value` column.
-        String sqlTryValue = "SELECT `value` as v FROM settings WHERE setting_key = 'maintenance_mode' LIMIT 1";
-        String sqlTrySettingValue = "SELECT setting_value as v FROM settings WHERE setting_key = 'maintenance_mode' LIMIT 1";
+        String sqlTryValue = "SELECT `value` as v FROM settings WHERE `key` = 'maintenance_mode' LIMIT 1";
+        String sqlTrySettingValue = "SELECT setting_value as v FROM settings WHERE `key` = 'maintenance_mode' LIMIT 1";
 
         try (Connection conn = DBConfig.getErpConnection()) {
             // first try 'value'

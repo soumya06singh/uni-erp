@@ -11,26 +11,27 @@ import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.table.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
 import java.io.FileWriter;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Vector;
 
+/**
+ * InstructorDashboard - patched to hide gradebook by default and show it on "Load Roster"
+ * or via a toggle button. Styling and behavior otherwise preserved from your previous version.
+ */
 public class InstructorDashboard extends JFrame {
 
     private final String instructorUserId;
     private final String username;
 
-    // Updated ACCENT to match the specific Teal (0, 180, 180) you liked for the Export button
+    // theme colors (lighter teal accent requested)
     private static final Color BG = Color.WHITE;
-    private static final Color ACCENT = new Color(0, 180, 180);
-    private static final Color ACCENT_HOVER = new Color(0, 150, 150); // Slightly darker for hover effect
+    private static final Color ACCENT = new Color(96, 213, 207);
+    private static final Color ACCENT_HOVER = new Color(64, 196, 185);
     private static final Color ACCENT_DARK = new Color(28, 160, 157);
     private static final Color MUTED = new Color(110, 110, 110);
-
     private static final Font TITLE_FONT = new Font("Segoe UI", Font.BOLD, 20);
     private static final Font HEADER_FONT = new Font("Segoe UI", Font.PLAIN, 14);
 
@@ -50,18 +51,23 @@ public class InstructorDashboard extends JFrame {
     private volatile boolean maintenanceOn = false;
     private javax.swing.Timer maintenancePollTimer;
 
-    // --- UPDATED: All buttons now use the custom PillButton class ---
-    private final JButton btnRefreshSections = new PillButton("Refresh Sections");
-    private final JButton btnLoadRoster = new PillButton("Load Roster");
-    private final JButton btnComputeFinal = new PillButton("Compute Final");
-    private final JButton btnSave = new PillButton("Save Grades");
-    private final JButton btnExport = new PillButton("Export CSV");
+    private final JButton btnRefreshSections = new JButton("Refresh Sections");
+    private final JButton btnLoadRoster = new JButton("Load Roster");
+    private final JButton btnToggleGradebook = new JButton("Show Gradebook"); // new toggle
+
+    private final JButton btnComputeFinal = new JButton("Compute Final (20/30/50)");
+    private final JButton btnSave = new JButton("Save Grades");
+    private final JButton btnExport = new JButton("Export CSV");
 
     private static final double W_QUIZ = 0.20;
     private static final double W_MID = 0.30;
     private static final double W_END = 0.50;
 
     private final InstructorService service = new InstructorService();
+
+    // reference to right panel and split so we can hide/show gradebook
+    private JPanel rightPanel;
+    private JSplitPane split;
 
     public InstructorDashboard(String instructorUserId, String username) {
         super("Instructor Dashboard - " + username);
@@ -91,54 +97,45 @@ public class InstructorDashboard extends JFrame {
     }
 
     private void initUI() {
-        // frame basics
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         setSize(1150, 720);
         setLocationRelativeTo(null);
 
-        // root panel
         JPanel root = new JPanel(new BorderLayout(12,12));
         root.setBackground(BG);
         root.setBorder(new EmptyBorder(12,12,12,12));
         setContentPane(root);
 
-        // header
+        // Header
         JPanel header = new JPanel(new BorderLayout());
-        header.setBackground(Color.WHITE);
+        header.setOpaque(false);
         header.setBorder(new EmptyBorder(8,12,12,12));
-
-        JPanel titleBlock = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 6));
-        titleBlock.setOpaque(false);
         lblWelcome.setFont(TITLE_FONT);
-        lblWelcome.setForeground(Color.BLACK);
         lblWelcome.setText("Welcome, " + username);
-        titleBlock.add(lblWelcome);
-
         lblDepartment.setFont(HEADER_FONT);
         lblDepartment.setForeground(MUTED);
-        titleBlock.add(lblDepartment);
-        header.add(titleBlock, BorderLayout.WEST);
 
-        JPanel rightBlock = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 6));
-        rightBlock.setOpaque(false);
+        JPanel leftTitle = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 6));
+        leftTitle.setOpaque(false);
+        leftTitle.add(lblWelcome);
+        leftTitle.add(lblDepartment);
+        header.add(leftTitle, BorderLayout.WEST);
+
+        JPanel rightTitle = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 6));
+        rightTitle.setOpaque(false);
         lblStats.setFont(HEADER_FONT.deriveFont(12f));
         lblStats.setForeground(MUTED);
-        rightBlock.add(lblStats);
-
         lblMaintenance.setFont(HEADER_FONT.deriveFont(Font.BOLD, 12f));
         lblMaintenance.setForeground(new Color(180,20,20));
         lblMaintenance.setVisible(false);
-        rightBlock.add(lblMaintenance);
-
-        header.add(rightBlock, BorderLayout.EAST);
-
-        JSeparator sep = new JSeparator();
-        sep.setForeground(new Color(230,230,230));
+        rightTitle.add(lblStats);
+        rightTitle.add(lblMaintenance);
+        header.add(rightTitle, BorderLayout.EAST);
 
         root.add(header, BorderLayout.NORTH);
-        root.add(sep, BorderLayout.CENTER);
+        root.add(new JSeparator(), BorderLayout.CENTER);
 
-        // main split
+        // Tables
         sectionsModel.setColumnIdentifiers(new String[]{
                 "Section ID","Course Code","Title","Semester","Year","Day","Start","End","Room","Capacity"
         });
@@ -150,34 +147,39 @@ public class InstructorDashboard extends JFrame {
 
         installNumericEditors();
 
+        // Left panel (sections + controls)
         JPanel leftPanel = new JPanel(new BorderLayout(8,8));
         leftPanel.setOpaque(false);
-        JLabel leftTitle = new JLabel("My Sections");
-        leftTitle.setFont(HEADER_FONT.deriveFont(Font.BOLD));
-        leftTitle.setBorder(new EmptyBorder(6,6,6,6));
-        leftPanel.add(leftTitle, BorderLayout.NORTH);
+        JLabel leftTitleLbl = new JLabel("My Sections");
+        leftTitleLbl.setFont(HEADER_FONT.deriveFont(Font.BOLD));
+        leftTitleLbl.setBorder(new EmptyBorder(6,6,6,6));
+        leftPanel.add(leftTitleLbl, BorderLayout.NORTH);
         leftPanel.add(new JScrollPane(tblSections), BorderLayout.CENTER);
 
         JPanel leftBtns = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 8));
         leftBtns.setOpaque(false);
-
-        // Note: No longer need stylePillButton() calls here,
-        // because the PillButton class handles its own styling.
+        stylePillButton(btnRefreshSections);
+        stylePillButton(btnLoadRoster);
+        styleOutlineToggle(btnToggleGradebook); // toggle is outline style
         leftBtns.add(btnRefreshSections);
         leftBtns.add(btnLoadRoster);
+        leftBtns.add(btnToggleGradebook);
         leftPanel.add(leftBtns, BorderLayout.SOUTH);
 
-        JPanel rightPanel = new JPanel(new BorderLayout(8,8));
+        // Right panel (gradebook) initially created but hidden
+        rightPanel = new JPanel(new BorderLayout(8,8));
         rightPanel.setOpaque(false);
-        JLabel rightTitle = new JLabel("Gradebook");
-        rightTitle.setFont(HEADER_FONT.deriveFont(Font.BOLD));
-        rightTitle.setBorder(new EmptyBorder(6,6,6,6));
-        rightPanel.add(rightTitle, BorderLayout.NORTH);
+        JLabel rightTitleLbl = new JLabel("Gradebook");
+        rightTitleLbl.setFont(HEADER_FONT.deriveFont(Font.BOLD));
+        rightTitleLbl.setBorder(new EmptyBorder(6,6,6,6));
+        rightPanel.add(rightTitleLbl, BorderLayout.NORTH);
         rightPanel.add(new JScrollPane(tblGrades), BorderLayout.CENTER);
 
         JPanel rightBtns = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 8));
         rightBtns.setOpaque(false);
-
+        stylePillButton(btnComputeFinal);
+        stylePillButton(btnSave);
+        stylePillButton(btnExport);
         rightBtns.add(btnComputeFinal);
         rightBtns.add(btnSave);
         rightBtns.add(btnExport);
@@ -189,7 +191,7 @@ public class InstructorDashboard extends JFrame {
         logoutBtn.setForeground(ACCENT_DARK);
         logoutBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         logoutBtn.setFocusPainted(false);
-        logoutBtn.setPreferredSize(new Dimension(110, 40)); // Matched height
+        logoutBtn.setPreferredSize(new Dimension(110, 34));
         logoutBtn.addActionListener((ActionEvent e) -> {
             if (maintenancePollTimer != null && maintenancePollTimer.isRunning()) maintenancePollTimer.stop();
             dispose();
@@ -199,15 +201,18 @@ public class InstructorDashboard extends JFrame {
 
         rightPanel.add(rightBtns, BorderLayout.SOUTH);
 
-        JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, leftPanel, rightPanel);
+        // Split pane - rightPanel will be hidden initially
+        split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, leftPanel, rightPanel);
         split.setDividerLocation(380);
         split.setBorder(null);
-        split.setOpaque(false);
-
         root.add(split, BorderLayout.CENTER);
 
-        // actions
+        // Hide gradebook at startup
+        setGradebookVisible(false, true);
+
+        // Actions
         btnRefreshSections.addActionListener((ActionEvent e) -> loadSections());
+
         btnLoadRoster.addActionListener((ActionEvent e) -> {
             int viewRow = tblSections.getSelectedRow();
             if (viewRow < 0) {
@@ -216,7 +221,16 @@ public class InstructorDashboard extends JFrame {
             }
             int modelRow = tblSections.convertRowIndexToModel(viewRow);
             String sectionId = (String) sectionsModel.getValueAt(modelRow, 0);
+            // show gradebook when loading roster
+            setGradebookVisible(true, false);
+            btnToggleGradebook.setText("Hide Gradebook");
             loadRosterForSection(sectionId);
+        });
+
+        btnToggleGradebook.addActionListener((ActionEvent e) -> {
+            boolean currentlyVisible = rightPanel.isVisible();
+            setGradebookVisible(!currentlyVisible, false);
+            btnToggleGradebook.setText(!currentlyVisible ? "Hide Gradebook" : "Show Gradebook");
         });
 
         btnComputeFinal.addActionListener((ActionEvent e) -> computeFinalAndUpdateTable());
@@ -229,7 +243,8 @@ public class InstructorDashboard extends JFrame {
                 if (v >= 0) {
                     int m = tblSections.convertRowIndexToModel(v);
                     String sec = (String) sectionsModel.getValueAt(m, 0);
-                    loadRosterForSection(sec);
+                    // do not auto-load roster on selection; user must click Load Roster
+                    // but we can optionally prefetch if you want.
                 }
             }
         });
@@ -244,7 +259,27 @@ public class InstructorDashboard extends JFrame {
         });
     }
 
-    // ----- styling helpers -----
+    /**
+     * Show/hide gradebook panel.
+     * @param visible desired visibility
+     * @param forceDividerWhenHiding if true, immediately place divider at right edge when hiding (for initial layout)
+     */
+    private void setGradebookVisible(boolean visible, boolean forceDividerWhenHiding) {
+        rightPanel.setVisible(visible);
+        split.setRightComponent(visible ? rightPanel : new JPanel()); // replace with empty panel to allow full-width left
+        if (!visible && forceDividerWhenHiding) {
+            // move divider fully right so left panel fills (small hack: set divider to very large)
+            split.setDividerLocation(1.0);
+        } else if (!visible) {
+            split.setDividerLocation(1.0);
+        } else {
+            split.setDividerLocation(380);
+        }
+        revalidate();
+        repaint();
+    }
+
+    // ----- styling utilities -----
 
     private void styleTable(JTable t, boolean compact) {
         t.setRowHeight(compact ? 28 : 30);
@@ -276,6 +311,36 @@ public class InstructorDashboard extends JFrame {
         t.setDefaultRenderer(Object.class, cellRend);
     }
 
+    private void stylePillButton(JButton b) {
+        b.setFont(HEADER_FONT.deriveFont(13f));
+        b.setForeground(Color.WHITE);
+        b.setBackground(ACCENT);
+        b.setOpaque(true);
+        b.setBorder(BorderFactory.createEmptyBorder(8, 12, 8, 12));
+        b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        b.setFocusPainted(false);
+        b.setPreferredSize(new Dimension(160, 36));
+        b.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override public void mouseEntered(java.awt.event.MouseEvent e) { if (b.isEnabled()) b.setBackground(ACCENT_HOVER); }
+            @Override public void mouseExited(java.awt.event.MouseEvent e) { if (b.isEnabled()) b.setBackground(ACCENT); }
+        });
+    }
+
+    private void styleOutlineToggle(JButton b) {
+        b.setFont(HEADER_FONT.deriveFont(13f));
+        b.setForeground(ACCENT_DARK);
+        b.setBackground(Color.WHITE);
+        b.setOpaque(true);
+        b.setBorder(BorderFactory.createLineBorder(ACCENT_DARK));
+        b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        b.setFocusPainted(false);
+        b.setPreferredSize(new Dimension(140, 36));
+        b.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override public void mouseEntered(java.awt.event.MouseEvent e) { if (b.isEnabled()) b.setBackground(new Color(240, 255, 254)); }
+            @Override public void mouseExited(java.awt.event.MouseEvent e) { if (b.isEnabled()) b.setBackground(Color.WHITE); }
+        });
+    }
+
     private void installNumericEditors() {
         DoubleEditor doubleEditor = new DoubleEditor();
         SwingUtilities.invokeLater(() -> {
@@ -294,7 +359,7 @@ public class InstructorDashboard extends JFrame {
         });
     }
 
-    // ----- data / actions -----
+    // ----- data & actions (delegated to InstructorService) -----
 
     private void setStatsText(String text) {
         SwingUtilities.invokeLater(() -> lblStats.setText(text));
@@ -528,56 +593,7 @@ public class InstructorDashboard extends JFrame {
         });
     }
 
-    // --- Custom Component Classes ---
-
-    /**
-     * A custom button class that renders as a rounded "Pill" shape
-     * with the specific Teal color requested.
-     */
-    private static class PillButton extends JButton {
-        public PillButton(String text) {
-            super(text);
-            setContentAreaFilled(false);
-            setFocusPainted(false);
-            setBorderPainted(false);
-            setFont(new Font("Segoe UI", Font.BOLD, 12));
-            setForeground(Color.WHITE);
-            setBackground(ACCENT);
-            setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-            setPreferredSize(new Dimension(140, 40)); // Default size
-
-            // Hover effect logic
-            addMouseListener(new MouseAdapter() {
-                @Override
-                public void mouseEntered(MouseEvent e) {
-                    setBackground(ACCENT_HOVER);
-                }
-                @Override
-                public void mouseExited(MouseEvent e) {
-                    setBackground(ACCENT);
-                }
-            });
-        }
-
-        @Override
-        protected void paintComponent(Graphics g) {
-            Graphics2D g2 = (Graphics2D) g.create();
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
-            // Use the current background color (which changes on hover via MouseListener)
-            if (getModel().isPressed()) {
-                g2.setColor(getBackground().darker());
-            } else {
-                g2.setColor(getBackground());
-            }
-
-            // Draw the filled rounded rectangle
-            g2.fillRoundRect(0, 0, getWidth(), getHeight(), 30, 30);
-            g2.dispose();
-
-            super.paintComponent(g);
-        }
-    }
+    // --- small editor & renderers ---
 
     static class DoubleEditor extends DefaultCellEditor {
         private final JTextField fld;

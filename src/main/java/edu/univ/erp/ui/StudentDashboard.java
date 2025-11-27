@@ -5,7 +5,9 @@ import edu.univ.erp.service.StudentService.*;
 import edu.univ.erp.domain.ServiceResult;
 
 import javax.swing.*;
+import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.table.JTableHeader;
 import javax.swing.table.TableRowSorter;
 import java.awt.*;
 import java.io.FileWriter;
@@ -13,8 +15,38 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Vector;
+import edu.univ.erp.service.StudentService.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import javax.swing.JTable;
+import javax.swing.BorderFactory;
+import javax.swing.SwingUtilities;
+import java.awt.Color;
+import java.awt.Font;
+import java.awt.Dimension;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Set;
+
+
+
+
+
 
 public class StudentDashboard extends JFrame {
+
+    // CORRECT color scheme - matching admin dashboard
+    private static final Color TEAL_COLOR = new Color(0, 180, 180);           // RGB(0, 180, 180)
+    private static final Color TEAL_DARK = new Color(0, 150, 150);            // Darker teal for hover
+    private static final Color DELETE_RED = new Color(200, 50, 50);           // Red for delete
+    private static final Color LIGHT_TEAL_BG = new Color(224, 247, 250);      // Very light teal for selected rows
+    private static final Color SIDEBAR_BG = new Color(240, 248, 255);         // Light sidebar
+    private static final Color BG_LIGHT = new Color(248, 249, 250);
+    private static final Color TEXT_DARK = new Color(52, 58, 64);
+    private static final Color BORDER_GRAY = new Color(222, 226, 230);
+
     private final String userId;
     private final String username;
     private final StudentService studentService;
@@ -24,6 +56,7 @@ public class StudentDashboard extends JFrame {
     private DefaultTableModel catalogModel;
     private DefaultTableModel timetableModel;
     private DefaultTableModel gradesModel;
+    private JTabbedPane mainTabbedPane;
 
 
     public StudentDashboard(String userId, String username) {
@@ -38,90 +71,306 @@ public class StudentDashboard extends JFrame {
     }
 
     private void initUI() {
-        setSize(1100, 700);
+        setSize(1400, 800);
         setLocationRelativeTo(null);
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-        setLayout(new BorderLayout(10, 10));
+        setLayout(new BorderLayout(0, 0));
 
-        // Top panel with title and maintenance banner
-        JPanel topPanel = new JPanel(new BorderLayout());
+        // LEFT SIDEBAR (like admin dashboard)
+        JPanel sidebar = createSidebar();
+        add(sidebar, BorderLayout.WEST);
 
-        JLabel title = new JLabel("Welcome, " + username);
-        title.setFont(new Font("SansSerif", Font.BOLD, 20));
-        title.setBorder(BorderFactory.createEmptyBorder(10, 15, 10, 15));
-        topPanel.add(title, BorderLayout.WEST);
+        // RIGHT CONTENT AREA
+        JPanel contentArea = new JPanel(new BorderLayout(0, 0));
+        contentArea.setBackground(Color.WHITE);
 
-        // Maintenance banner (initially hidden)
-        maintenanceBanner = new JLabel("⚠ MAINTENANCE MODE - View Only", SwingConstants.CENTER);
-        maintenanceBanner.setFont(new Font("SansSerif", Font.BOLD, 14));
-        maintenanceBanner.setBackground(new Color(255, 165, 0));
-        maintenanceBanner.setForeground(Color.WHITE);
+        // Maintenance banner at very top
+        maintenanceBanner = new JLabel("MAINTENANCE MODE - View Only", SwingConstants.CENTER);
+        maintenanceBanner.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        maintenanceBanner.setBackground(new Color(255, 193, 7));
+        maintenanceBanner.setForeground(new Color(102, 60, 0));
         maintenanceBanner.setOpaque(true);
-        maintenanceBanner.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
+        maintenanceBanner.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
         maintenanceBanner.setVisible(false);
-        topPanel.add(maintenanceBanner, BorderLayout.NORTH);
-
-        add(topPanel, BorderLayout.NORTH);
+        contentArea.add(maintenanceBanner, BorderLayout.NORTH);
 
         // Main tabbed pane
-        JTabbedPane tabbedPane = new JTabbedPane();
-        tabbedPane.setFont(new Font("SansSerif", Font.PLAIN, 13));
+        mainTabbedPane = new JTabbedPane();
+        JTabbedPane tabbedPane = mainTabbedPane;
 
-        // Tab 1: My Enrollments
-        tabbedPane.addTab("📚 My Enrollments", createEnrollmentsPanel());
+        tabbedPane.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        tabbedPane.setBackground(Color.WHITE);
+        tabbedPane.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 0));
+        tabbedPane.setTabPlacement(JTabbedPane.TOP);  // Keep tabs but we'll hide them
 
-        // Tab 2: Course Catalog (Browse & Register)
-        tabbedPane.addTab("🔍 Course Catalog", createCourseCatalogPanel());
+// Add tabs WITHOUT labels (empty strings)
+        tabbedPane.addTab("", createEnrollmentsPanel());
+        tabbedPane.addTab("", createCourseCatalogPanel());
+        tabbedPane.addTab("", createTimetablePanel());
+        tabbedPane.addTab("", createGradesPanel());
 
-        // Tab 3: My Timetable
-        tabbedPane.addTab("📅 Timetable", createTimetablePanel());
-
-        // Tab 4: My Grades
-        tabbedPane.addTab("📊 Grades", createGradesPanel());
-
-        add(tabbedPane, BorderLayout.CENTER);
-
-        // Bottom panel with action buttons
-        JPanel bottomPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 10));
-
-        JButton refreshBtn = new JButton("🔄 Refresh All");
-        refreshBtn.addActionListener(e -> refreshAllData());
-
-        JButton transcriptBtn = new JButton("📄 Download Transcript");
-        transcriptBtn.addActionListener(e -> downloadTranscript());
-
-        JButton logoutBtn = new JButton("🚪 Logout");
-        logoutBtn.addActionListener(e -> {
-            int confirm = JOptionPane.showConfirmDialog(
-                    this,
-                    "Are you sure you want to logout?",
-                    "Confirm Logout",
-                    JOptionPane.YES_NO_OPTION,
-                    JOptionPane.QUESTION_MESSAGE
-            );
-            if (confirm == JOptionPane.YES_OPTION) {
-                SwingUtilities.invokeLater(() -> {
-                    MainApp.main(null);  // 🔥 go back to login window
-                });
-                dispose(); // close student dashboard
+// Hide the tab area completely
+        tabbedPane.setUI(new javax.swing.plaf.basic.BasicTabbedPaneUI() {
+            @Override
+            protected int calculateTabAreaHeight(int tabPlacement, int horizRunCount, int maxTabHeight) {
+                return 0;
             }
         });
 
+// Add Welcome message at the top of content area
+        JPanel welcomePanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 20, 15));
+        welcomePanel.setBackground(Color.WHITE);
+        welcomePanel.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, BORDER_GRAY));
+
+        JLabel welcomeLabel = new JLabel("Welcome, " + username+ " !");
+        welcomeLabel.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        welcomeLabel.setForeground(TEAL_COLOR);
+        welcomePanel.add(welcomeLabel);
+
+// Add welcome panel to content area
+        JPanel contentWithWelcome = new JPanel(new BorderLayout(0, 0));
+        contentWithWelcome.setBackground(Color.WHITE);
+        contentWithWelcome.add(welcomePanel, BorderLayout.NORTH);
+        contentWithWelcome.add(tabbedPane, BorderLayout.CENTER);
+
+        contentArea.add(contentWithWelcome, BorderLayout.CENTER);
+
+        // Bottom buttons panel
+        JPanel bottomPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 15));
+        bottomPanel.setBackground(Color.WHITE);
+        bottomPanel.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, BORDER_GRAY));
+
+        JButton refreshBtn = createRoundedButton("Refresh All", TEAL_COLOR);
+        refreshBtn.addActionListener(e -> refreshAllData());
+
+        JButton transcriptBtn = createRoundedButton("Download Transcript", TEAL_COLOR);
+        transcriptBtn.addActionListener(e -> downloadTranscript());
 
         bottomPanel.add(refreshBtn);
         bottomPanel.add(transcriptBtn);
-        bottomPanel.add(logoutBtn);
 
-        add(bottomPanel, BorderLayout.SOUTH);
+        contentArea.add(bottomPanel, BorderLayout.SOUTH);
+
+        add(contentArea, BorderLayout.CENTER);
+    }
+    private JPanel createSidebar() {
+        JPanel sidebar = new JPanel();
+        sidebar.setLayout(new BorderLayout());
+        sidebar.setBackground(SIDEBAR_BG);
+        sidebar.setPreferredSize(new Dimension(280, getHeight()));
+        sidebar.setBorder(BorderFactory.createMatteBorder(0, 0, 0, 1, BORDER_GRAY));
+
+        // Top section with title
+        JPanel topSection = new JPanel();
+        topSection.setLayout(new BoxLayout(topSection, BoxLayout.Y_AXIS));
+        topSection.setBackground(SIDEBAR_BG);
+        topSection.setBorder(BorderFactory.createEmptyBorder(30, 25, 30, 25));
+
+        JLabel titleLabel = new JLabel("Student Portal");
+        titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 24));
+        titleLabel.setForeground(TEAL_COLOR);
+        titleLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        topSection.add(titleLabel);
+        sidebar.add(topSection, BorderLayout.NORTH);
+
+        // Center section with navigation
+        JPanel navSection = new JPanel();
+        navSection.setLayout(new BoxLayout(navSection, BoxLayout.Y_AXIS));
+        navSection.setBackground(SIDEBAR_BG);
+        navSection.setBorder(BorderFactory.createEmptyBorder(20, 0, 20, 0));
+
+        // Add navigation buttons
+        addNavButton(navSection, "My Enrollments", 0);
+        addNavButton(navSection, "Course Catalog", 1);
+        addNavButton(navSection, "Timetable", 2);
+        addNavButton(navSection, "Grades", 3);
+
+        sidebar.add(navSection, BorderLayout.CENTER);
+
+        // Bottom section with LOGOUT button (RED)
+        JPanel bottomSection = new JPanel(new FlowLayout(FlowLayout.LEFT, 25, 25));
+        bottomSection.setBackground(SIDEBAR_BG);
+
+        // NEW CODE - Text-only logout
+        JLabel logoutLabel = new JLabel("Logout");
+        logoutLabel.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        logoutLabel.setForeground(DELETE_RED);
+        logoutLabel.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        logoutLabel.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                int confirm = JOptionPane.showConfirmDialog(StudentDashboard.this,
+                        "Are you sure you want to logout?",
+                        "Confirm Logout",
+                        JOptionPane.YES_NO_OPTION);
+                if (confirm == JOptionPane.YES_OPTION) {
+                    SwingUtilities.invokeLater(() -> MainApp.main(null));
+                    dispose();
+                }
+            }
+
+            @Override
+            public void mouseEntered(MouseEvent e) {
+                logoutLabel.setFont(new Font("Segoe UI", Font.BOLD, 14));
+            }
+
+            @Override
+            public void mouseExited(MouseEvent e) {
+                logoutLabel.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+            }
+        });
+
+        bottomSection.add(logoutLabel);
+        sidebar.add(bottomSection, BorderLayout.SOUTH);
+
+        return sidebar;
+    }
+
+    // Add this field at the top of your class with other fields:
+
+    // Add this helper method:
+    private void addNavButton(JPanel parent, String text, int tabIndex) {
+        JButton btn = new JButton(text);
+        btn.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        btn.setForeground(TEXT_DARK);
+        btn.setBackground(SIDEBAR_BG);
+        btn.setHorizontalAlignment(SwingConstants.LEFT);
+        btn.setBorder(BorderFactory.createEmptyBorder(12, 25, 12, 25));
+        btn.setFocusPainted(false);
+        btn.setContentAreaFilled(false);
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btn.setMaximumSize(new Dimension(Integer.MAX_VALUE, 45));
+
+        btn.addActionListener(e -> {
+            if (mainTabbedPane != null) {
+                mainTabbedPane.setSelectedIndex(tabIndex);
+                // Update all buttons in parent to show which is active
+                updateNavButtonStates(parent, btn);
+            }
+        });
+
+        btn.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseEntered(MouseEvent e) {
+                if (!isButtonActive(btn)) {
+                    btn.setBackground(LIGHT_TEAL_BG);
+                    btn.setOpaque(true);
+                    // REMOVED: btn.setFont(new Font("Segoe UI", Font.BOLD, 14));
+                }
+            }
+
+            @Override
+            public void mouseExited(MouseEvent e) {
+                if (!isButtonActive(btn)) {
+                    btn.setBackground(SIDEBAR_BG);
+                    btn.setOpaque(false);
+                    // REMOVED: btn.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+                }
+            }
+        });
+
+        parent.add(btn);
+        parent.add(Box.createRigidArea(new Dimension(0, 5)));
+    }
+
+    // Add these helper methods:
+    private boolean isButtonActive(JButton btn) {
+        return btn.getFont().isBold() && btn.isOpaque() &&
+                btn.getBackground().equals(LIGHT_TEAL_BG);
+    }
+
+    private void updateNavButtonStates(JPanel parent, JButton activeButton) {
+        for (Component comp : parent.getComponents()) {
+            if (comp instanceof JButton) {
+                JButton btn = (JButton) comp;
+                if (btn == activeButton) {
+                    // Make active button bold with background and left teal border
+                    btn.setFont(new Font("Segoe UI", Font.BOLD, 14));
+                    btn.setBackground(LIGHT_TEAL_BG);
+                    btn.setOpaque(true);
+                    btn.setBorder(BorderFactory.createCompoundBorder(
+                            BorderFactory.createMatteBorder(0, 4, 0, 0, TEAL_COLOR),
+                            BorderFactory.createEmptyBorder(12, 21, 12, 25)
+                    ));
+                } else {
+                    // Make other buttons normal
+                    btn.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+                    btn.setBackground(SIDEBAR_BG);
+                    btn.setOpaque(false);
+                    btn.setBorder(BorderFactory.createEmptyBorder(12, 25, 12, 25));
+                }
+            }
+        }
+    }
+        private JButton createRoundedButton(String text, Color bgColor) {
+            JButton btn = new JButton(text) {
+                @Override
+                protected void paintComponent(Graphics g) {
+                    Graphics2D g2 = (Graphics2D) g.create();
+                    g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+                    if (getModel().isPressed()) {
+                        g2.setColor(TEAL_DARK);  // Use the darker teal constant
+                    } else if (getModel().isRollover()) {
+                        g2.setColor(TEAL_DARK);  // Same darker teal for hover
+                    } else {
+                        g2.setColor(bgColor);
+                    }
+                    g2.fillRoundRect(0, 0, getWidth(), getHeight(), 20, 20);
+                    g2.dispose();
+
+                    super.paintComponent(g);
+                }
+            };
+
+            btn.setFont(new Font("Segoe UI", Font.BOLD, 13));
+            btn.setForeground(Color.WHITE);
+            btn.setFocusPainted(false);
+            btn.setBorderPainted(false);
+            btn.setContentAreaFilled(false);
+            btn.setOpaque(false);
+            btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+            btn.setBorder(BorderFactory.createEmptyBorder(10, 20, 10, 20));
+
+            return btn;
+        }
+    private JTable createStyledTable(DefaultTableModel model) {
+        JTable table = new JTable(model);
+        table.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        table.setRowHeight(40);
+        table.setShowVerticalLines(true);
+        table.setShowHorizontalLines(true);
+        table.setGridColor(BORDER_GRAY);
+        table.setSelectionBackground(LIGHT_TEAL_BG);
+        table.setSelectionForeground(TEXT_DARK);
+        table.setIntercellSpacing(new Dimension(1, 1));
+        table.setBackground(Color.WHITE);
+
+        JTableHeader header = table.getTableHeader();
+        header.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        header.setBackground(Color.WHITE);
+        header.setForeground(TEXT_DARK);
+        header.setBorder(BorderFactory.createMatteBorder(0, 0, 2, 0, TEAL_COLOR));
+        header.setPreferredSize(new Dimension(header.getPreferredSize().width, 45));
+
+        DefaultTableCellRenderer centerRenderer = new DefaultTableCellRenderer();
+        centerRenderer.setHorizontalAlignment(JLabel.CENTER);
+        centerRenderer.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
+
+        for (int i = 0; i < table.getColumnCount(); i++) {
+            table.getColumnModel().getColumn(i).setCellRenderer(centerRenderer);
+        }
+
+        return table;
     }
 
     // ==================== MY ENROLLMENTS TAB ====================
     private JPanel createEnrollmentsPanel() {
-        JPanel panel = new JPanel(new BorderLayout(10, 10));
-        panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        JPanel panel = new JPanel(new BorderLayout(0, 20));
+        panel.setBackground(Color.WHITE);
+        panel.setBorder(BorderFactory.createEmptyBorder(20, 30, 20, 30));
 
-        JLabel label = new JLabel("Your Registered Sections");
-        label.setFont(new Font("SansSerif", Font.BOLD, 14));
 
         enrollModel = new DefaultTableModel() {
             @Override
@@ -134,20 +383,25 @@ public class StudentDashboard extends JFrame {
                 "Semester", "Room", "Status"
         });
 
-        enrollTable = new JTable(enrollModel);
-        enrollTable.setRowHeight(25);
+        enrollTable = createStyledTable(enrollModel);
         enrollTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         TableRowSorter<DefaultTableModel> sorter = new TableRowSorter<>(enrollModel);
         enrollTable.setRowSorter(sorter);
 
         JScrollPane scroll = new JScrollPane(enrollTable);
+        scroll.setBorder(BorderFactory.createLineBorder(BORDER_GRAY, 1));
+        scroll.getViewport().setBackground(Color.WHITE);
+        scroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+        scroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
 
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        JButton dropBtn = new JButton("❌ Drop Selected Section");
+
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+        buttonPanel.setBackground(Color.WHITE);
+
+        JButton dropBtn = createRoundedButton("Drop Selected Section", DELETE_RED);
         dropBtn.addActionListener(e -> dropSection());
         buttonPanel.add(dropBtn);
 
-        panel.add(label, BorderLayout.NORTH);
         panel.add(scroll, BorderLayout.CENTER);
         panel.add(buttonPanel, BorderLayout.SOUTH);
 
@@ -156,10 +410,7 @@ public class StudentDashboard extends JFrame {
 
     private void loadEnrollments() {
         enrollModel.setRowCount(0);
-
-        // USE SERVICE LAYER INSTEAD OF DIRECT SQL
         List<EnrollmentView> enrollments = studentService.getStudentEnrollments(userId);
-
         for (EnrollmentView enrollment : enrollments) {
             Vector<Object> row = new Vector<>();
             row.add(enrollment.sectionId());
@@ -173,30 +424,43 @@ public class StudentDashboard extends JFrame {
             enrollModel.addRow(row);
         }
     }
-
     // ==================== COURSE CATALOG TAB ====================
     private JPanel createCourseCatalogPanel() {
-        JPanel panel = new JPanel(new BorderLayout(10, 10));
-        panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        JPanel panel = new JPanel(new BorderLayout(0, 20));
+        panel.setBackground(Color.WHITE);
+        panel.setBorder(BorderFactory.createEmptyBorder(20, 30, 20, 30));
 
-        JLabel headerLabel = new JLabel("Browse & Register for Courses");
-        headerLabel.setFont(new Font("SansSerif", Font.BOLD, 14));
-        headerLabel.setBorder(BorderFactory.createEmptyBorder(5, 5, 10, 5));
 
         // Search panel
-        JPanel searchPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
-        searchPanel.add(new JLabel("Search Course:"));
+        JPanel searchPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 10));
+        searchPanel.setBackground(Color.WHITE);
+        searchPanel.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(BORDER_GRAY, 1),
+                BorderFactory.createEmptyBorder(10, 15, 10, 15)
+        ));
+
+        JLabel searchLabel = new JLabel("Search Course:");
+        searchLabel.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        searchPanel.add(searchLabel);
+
         JTextField searchField = new JTextField(20);
+        searchField.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        searchField.setPreferredSize(new Dimension(200, 30));
         searchPanel.add(searchField);
 
-        JComboBox<String> semesterCombo = new JComboBox<>(new String[]{"All", "Fall", "Spring", "Summer"});
-        searchPanel.add(new JLabel("Semester:"));
+        JLabel semLabel = new JLabel("Semester:");
+        semLabel.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        searchPanel.add(semLabel);
+
+        JComboBox<String> semesterCombo = new JComboBox<>(new String[]{"All", "Fall", "Spring", "Summer","Winter"});
+        semesterCombo.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        semesterCombo.setPreferredSize(new Dimension(120, 30));
         searchPanel.add(semesterCombo);
 
-        JButton searchBtn = new JButton("🔍 Search");
+        JButton searchBtn = createRoundedButton("Search", TEAL_COLOR);
         searchPanel.add(searchBtn);
 
-        JButton clearBtn = new JButton("Clear");
+        JButton clearBtn = createRoundedButton("Clear", TEAL_COLOR);
         clearBtn.addActionListener(e -> {
             searchField.setText("");
             semesterCombo.setSelectedIndex(0);
@@ -216,40 +480,41 @@ public class StudentDashboard extends JFrame {
                 "Semester", "Room", "Capacity", "Enrolled", "Available"
         });
 
-        JTable catalogTable = new JTable(catalogModel);
-        catalogTable.setRowHeight(28);
+        JTable catalogTable = createStyledTable(catalogModel);
         catalogTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        catalogTable.getTableHeader().setFont(new Font("SansSerif", Font.BOLD, 12));
         TableRowSorter<DefaultTableModel> sorter = new TableRowSorter<>(catalogModel);
         catalogTable.setRowSorter(sorter);
 
         JScrollPane scroll = new JScrollPane(catalogTable);
-        scroll.setBorder(BorderFactory.createTitledBorder("Available Sections"));
+        scroll.setBorder(BorderFactory.createLineBorder(BORDER_GRAY, 1));
+        scroll.getViewport().setBackground(Color.WHITE);
+        scroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+        scroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
 
-        // Action buttons panel
+
+        // Action buttons
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 10));
+        buttonPanel.setBackground(Color.WHITE);
 
-        JButton registerBtn = new JButton("✅ Register for Selected Section");
-        registerBtn.setFont(new Font("SansSerif", Font.BOLD, 13));
+        JButton registerBtn = createRoundedButton("Register for Selected Section", TEAL_COLOR);
         registerBtn.addActionListener(e -> registerForSection(catalogTable, catalogModel));
 
-        JButton refreshCatalogBtn = new JButton("🔄 Refresh Catalog");
+        JButton refreshCatalogBtn = createRoundedButton("Refresh Catalog", TEAL_COLOR);
         refreshCatalogBtn.addActionListener(e -> {
             loadCourseCatalog(catalogModel, null, null);
             searchField.setText("");
             semesterCombo.setSelectedIndex(0);
         });
 
-        JButton viewDetailsBtn = new JButton("ℹ View Section Details");
+        JButton viewDetailsBtn = createRoundedButton("View Section Details", TEAL_COLOR);
         viewDetailsBtn.addActionListener(e -> viewSectionDetails(catalogTable, catalogModel));
 
         buttonPanel.add(registerBtn);
         buttonPanel.add(refreshCatalogBtn);
         buttonPanel.add(viewDetailsBtn);
 
-        // Add hint label
-        JLabel hintLabel = new JLabel("💡 Tip: Select a section from the table and click 'Register' to enroll");
-        hintLabel.setFont(new Font("SansSerif", Font.ITALIC, 11));
+        JLabel hintLabel = new JLabel("Tip: Select a section from the table and click 'Register' to enroll");
+        hintLabel.setFont(new Font("Segoe UI", Font.ITALIC, 11));
         hintLabel.setForeground(Color.GRAY);
         hintLabel.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
 
@@ -260,12 +525,11 @@ public class StudentDashboard extends JFrame {
             loadCourseCatalog(catalogModel, keyword, semester);
         });
 
-        // Layout
-        JPanel topSection = new JPanel(new BorderLayout());
-        topSection.add(headerLabel, BorderLayout.NORTH);
-        topSection.add(searchPanel, BorderLayout.CENTER);
-
+        JPanel topSection = new JPanel(new BorderLayout(0, 15));
+        topSection.setBackground(Color.WHITE);
+        topSection.add(searchPanel, BorderLayout.NORTH);  // Changed from CENTER to NORTH
         JPanel bottomSection = new JPanel(new BorderLayout());
+        bottomSection.setBackground(Color.WHITE);
         bottomSection.add(buttonPanel, BorderLayout.NORTH);
         bottomSection.add(hintLabel, BorderLayout.SOUTH);
 
@@ -273,18 +537,13 @@ public class StudentDashboard extends JFrame {
         panel.add(scroll, BorderLayout.CENTER);
         panel.add(bottomSection, BorderLayout.SOUTH);
 
-        // Load initial data
         loadCourseCatalog(catalogModel, null, null);
-
         return panel;
     }
 
     private void loadCourseCatalog(DefaultTableModel model, String keyword, String semester) {
         model.setRowCount(0);
-
-        // USE SERVICE LAYER INSTEAD OF DIRECT SQL
         List<CourseCatalogView> sections = studentService.getCourseCatalog(keyword, semester);
-
         for (CourseCatalogView section : sections) {
             Vector<Object> row = new Vector<>();
             row.add(section.sectionId());
@@ -322,96 +581,288 @@ public class StudentDashboard extends JFrame {
         int enrolled = (int) model.getValueAt(modelRow, 8);
         int available = (int) model.getValueAt(modelRow, 9);
 
-        String details = String.format(
-                "Section ID: %s\n\n" +
-                        "Course: %s - %s\n" +
-                        "Credits: %d\n\n" +
-                        "Instructor: %s\n" +
-                        "Semester: %s\n" +
-                        "Room: %s\n\n" +
-                        "Enrollment:\n" +
-                        "  Capacity: %d\n" +
-                        "  Enrolled: %d\n" +
-                        "  Available: %d",
-                sectionId, courseCode, courseTitle, credits,
-                instructor, semester, room,
-                capacity, enrolled, available
-        );
+        // Create a cleaner panel layout
+        JPanel detailsPanel = new JPanel();
+        detailsPanel.setLayout(new BoxLayout(detailsPanel, BoxLayout.Y_AXIS));
+        detailsPanel.setBackground(Color.WHITE);
+        detailsPanel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
 
-        JTextArea textArea = new JTextArea(details);
-        textArea.setEditable(false);
-        textArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
+        // Section ID
+        JLabel sectionLabel = new JLabel("Section: " + sectionId);
+        sectionLabel.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        sectionLabel.setForeground(TEAL_COLOR);
 
-        JScrollPane scrollPane = new JScrollPane(textArea);
-        scrollPane.setPreferredSize(new Dimension(400, 300));
+        // Course info
+        JLabel courseLabel = new JLabel(courseCode + " - " + courseTitle);
+        courseLabel.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        courseLabel.setBorder(BorderFactory.createEmptyBorder(5, 0, 10, 0));
 
-        JOptionPane.showMessageDialog(this, scrollPane,
-                "Section Details", JOptionPane.INFORMATION_MESSAGE);
+        JLabel creditsLabel = new JLabel("Credits: " + credits);
+        creditsLabel.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+
+        // Instructor & location
+        JLabel instructorLabel = new JLabel("Instructor: " + instructor);
+        instructorLabel.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        instructorLabel.setBorder(BorderFactory.createEmptyBorder(10, 0, 0, 0));
+
+        JLabel semesterLabel = new JLabel("Semester: " + semester);
+        semesterLabel.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+
+        JLabel roomLabel = new JLabel("Room: " + room);
+        roomLabel.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+
+        // Enrollment info
+        JLabel enrollTitle = new JLabel("Enrollment Information");
+        enrollTitle.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        enrollTitle.setBorder(BorderFactory.createEmptyBorder(15, 0, 5, 0));
+
+        JLabel capacityLabel = new JLabel("Capacity: " + capacity);
+        capacityLabel.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+
+        JLabel enrolledLabel = new JLabel("Enrolled: " + enrolled);
+        enrolledLabel.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+
+        JLabel availableLabel = new JLabel("Available: " + available);
+        availableLabel.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        if (available > 0) {
+            availableLabel.setForeground(TEAL_COLOR);
+        } else {
+            availableLabel.setForeground(DELETE_RED);
+        }
+
+        detailsPanel.add(sectionLabel);
+        detailsPanel.add(courseLabel);
+        detailsPanel.add(creditsLabel);
+        detailsPanel.add(instructorLabel);
+        detailsPanel.add(semesterLabel);
+        detailsPanel.add(roomLabel);
+        detailsPanel.add(enrollTitle);
+        detailsPanel.add(capacityLabel);
+        detailsPanel.add(enrolledLabel);
+        detailsPanel.add(availableLabel);
+
+        JOptionPane.showMessageDialog(this, detailsPanel,
+                "Section Details", JOptionPane.PLAIN_MESSAGE);
     }
-
     // ==================== TIMETABLE TAB ====================
     private JPanel createTimetablePanel() {
-        JPanel panel = new JPanel(new BorderLayout(10, 10));
-        panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        JPanel panel = new JPanel(new BorderLayout(0, 20));
+        panel.setBackground(Color.WHITE);
+        panel.setBorder(BorderFactory.createEmptyBorder(20, 30, 20, 30));
 
-        JLabel label = new JLabel("Your Weekly Schedule");
-        label.setFont(new Font("SansSerif", Font.BOLD, 14));
+        JPanel calendarPanel = createCalendarTimetable();
 
-        timetableModel = new DefaultTableModel() {
-            @Override
-            public boolean isCellEditable(int row, int column) {
-                return false;
-            }
-        };
-
-        timetableModel.setColumnIdentifiers(new Object[]{
-                "Day", "Time", "Course", "Section", "Room", "Instructor"
-        });
-
-        JTable timetableTable = new JTable(timetableModel);
-        timetableTable.setRowHeight(30);
-        JScrollPane scroll = new JScrollPane(timetableTable);
-
-        JButton refreshBtn = new JButton("🔄 Refresh Timetable");
-        refreshBtn.addActionListener(e -> loadTimetable(timetableModel));
+        JButton refreshBtn = createRoundedButton("Refresh Timetable", TEAL_COLOR);
+        refreshBtn.addActionListener(e -> refreshTimetable());
 
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        buttonPanel.setBackground(Color.WHITE);
         buttonPanel.add(refreshBtn);
 
-        panel.add(label, BorderLayout.NORTH);
-        panel.add(scroll, BorderLayout.CENTER);
+        panel.add(calendarPanel, BorderLayout.CENTER);
         panel.add(buttonPanel, BorderLayout.SOUTH);
-
-        loadTimetable(timetableModel);
 
         return panel;
     }
+    private JPanel createCalendarTimetable() {
+        JPanel calendarPanel = new JPanel(new BorderLayout(10, 10));
+        calendarPanel.setBackground(Color.WHITE);
 
-    private void loadTimetable(DefaultTableModel model) {
-        model.setRowCount(0);
+        // Days of the week
+        String[] days = {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday"};
 
-        // USE SERVICE LAYER INSTEAD OF DIRECT SQL
+        // Time slots - 30 minute intervals
+        String[] timeSlots = {"08:00", "08:30", "09:00", "09:30", "10:00", "10:30",
+                "11:00", "11:30", "12:00", "12:30", "13:00", "13:30",
+                "14:00", "14:30", "15:00", "15:30", "16:00", "16:30",
+                "17:00", "17:30", "18:00"};
+
+        // Main grid panel
+        JPanel gridPanel = new JPanel(new GridBagLayout());
+        gridPanel.setBackground(Color.WHITE);
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.fill = GridBagConstraints.BOTH;
+        gbc.weightx = 1.0;
+        gbc.weighty = 1.0;
+
+        // Add day headers
+        gbc.gridy = 0;
+        gbc.gridx = 0;
+        JLabel cornerLabel = new JLabel("Time", SwingConstants.CENTER);
+        cornerLabel.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        cornerLabel.setBorder(BorderFactory.createMatteBorder(1, 1, 2, 1, BORDER_GRAY));
+        cornerLabel.setBackground(new Color(245, 245, 245));
+        cornerLabel.setOpaque(true);
+        gridPanel.add(cornerLabel, gbc);
+
+        for (int i = 0; i < days.length; i++) {
+            gbc.gridx = i + 1;
+            JLabel dayLabel = new JLabel(days[i], SwingConstants.CENTER);
+            dayLabel.setFont(new Font("Segoe UI", Font.BOLD, 13));
+            dayLabel.setBorder(BorderFactory.createMatteBorder(1, 1, 2, 1, BORDER_GRAY));
+            dayLabel.setBackground(new Color(245, 245, 245));
+            dayLabel.setOpaque(true);
+            dayLabel.setPreferredSize(new Dimension(150, 40));
+            gridPanel.add(dayLabel, gbc);
+        }
+
+        // Load timetable data
         List<TimetableView> timetable = studentService.getStudentTimetable(userId);
 
+        // Create a map: day -> time -> list of courses (to handle multiple classes at same time)
+        Map<String, Map<String, List<TimetableView>>> scheduleMap = new HashMap<>();
         for (TimetableView entry : timetable) {
-            Vector<Object> row = new Vector<>();
-            row.add(entry.day());
-            row.add(entry.time());
-            row.add(entry.course());
-            row.add(entry.sectionId());
-            row.add(entry.room());
-            row.add(entry.instructorId());
-            model.addRow(row);
+            scheduleMap.putIfAbsent(entry.day(), new HashMap<>());
+            String timeKey = entry.time().substring(0, 5); // "09:30:00" -> "09:30"
+
+            scheduleMap.get(entry.day()).putIfAbsent(timeKey, new ArrayList<>());
+            scheduleMap.get(entry.day()).get(timeKey).add(entry);
         }
-    }
 
-    // ==================== GRADES TAB ====================
+        // Track which cells are occupied by spanning cells
+        Set<String> occupiedCells = new HashSet<>();
+
+        // Add time slots and course cells
+        for (int row = 0; row < timeSlots.length; row++) {
+            gbc.gridy = row + 1;
+            gbc.gridx = 0;
+            gbc.gridheight = 1;
+
+            // Time label
+            JLabel timeLabel = new JLabel(timeSlots[row], SwingConstants.CENTER);
+            timeLabel.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+            timeLabel.setBorder(BorderFactory.createMatteBorder(1, 1, 1, 1, BORDER_GRAY));
+            timeLabel.setBackground(new Color(250, 250, 250));
+            timeLabel.setOpaque(true);
+            gridPanel.add(timeLabel, gbc);
+
+            // Day cells
+            for (int col = 0; col < days.length; col++) {
+                gbc.gridx = col + 1;
+                gbc.gridheight = 1;
+
+                String day = days[col];
+                String currentTime = timeSlots[row];
+                String cellKey = day + "-" + row;
+
+                // Skip if this cell is already occupied by a spanning cell
+                if (occupiedCells.contains(cellKey)) {
+                    continue;
+                }
+
+                // Check if there are classes at this time
+                List<TimetableView> classesAtThisTime = null;
+                if (scheduleMap.containsKey(day) && scheduleMap.get(day).containsKey(currentTime)) {
+                    classesAtThisTime = scheduleMap.get(day).get(currentTime);
+                }
+
+                JPanel cellPanel = new JPanel();
+                cellPanel.setBorder(BorderFactory.createMatteBorder(1, 1, 1, 1, BORDER_GRAY));
+                cellPanel.setBackground(Color.WHITE);
+
+                if (classesAtThisTime != null && !classesAtThisTime.isEmpty()) {
+                    // Span 2 rows for 1-hour class (30 min + 30 min)
+                    gbc.gridheight = 2;
+                    occupiedCells.add(cellKey);
+                    if (row + 1 < timeSlots.length) {
+                        occupiedCells.add(day + "-" + (row + 1));
+                    }
+
+                    cellPanel.setBackground(LIGHT_TEAL_BG);
+                    cellPanel.setBorder(BorderFactory.createCompoundBorder(
+                            BorderFactory.createMatteBorder(1, 1, 1, 1, BORDER_GRAY),
+                            BorderFactory.createMatteBorder(0, 3, 0, 0, TEAL_COLOR)
+                    ));
+
+                    // If multiple classes at same time, divide the cell
+                    if (classesAtThisTime.size() == 1) {
+                        // Single class - use entire cell
+                        cellPanel.setLayout(new BorderLayout(3, 3));
+                        TimetableView entry = classesAtThisTime.get(0);
+
+                        JLabel courseLabel = new JLabel("<html><b>" + entry.course() + "</b><br/>" +
+                                entry.sectionId() + "<br/>" +
+                                entry.room() + "</html>");
+                        courseLabel.setFont(new Font("Segoe UI", Font.PLAIN, 10));
+                        courseLabel.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
+                        cellPanel.add(courseLabel, BorderLayout.CENTER);
+                    } else {
+                        // Multiple classes - divide cell horizontally
+                        cellPanel.setLayout(new GridLayout(classesAtThisTime.size(), 1, 0, 2));
+
+                        for (TimetableView entry : classesAtThisTime) {
+                            JPanel subPanel = new JPanel(new BorderLayout());
+                            subPanel.setBackground(LIGHT_TEAL_BG);
+                            subPanel.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, TEAL_COLOR));
+
+                            JLabel courseLabel = new JLabel("<html><b>" + entry.course() + "</b><br/>" +
+                                    entry.sectionId() + "<br/>" +
+                                    entry.room() + "</html>");
+                            courseLabel.setFont(new Font("Segoe UI", Font.PLAIN, 9));
+                            courseLabel.setBorder(BorderFactory.createEmptyBorder(3, 5, 3, 5));
+                            subPanel.add(courseLabel, BorderLayout.CENTER);
+
+                            cellPanel.add(subPanel);
+                        }
+                    }
+
+                    cellPanel.setPreferredSize(new Dimension(150, 80)); // Double height for 2 rows
+                } else {
+                    // Empty cell
+                    cellPanel.setLayout(new BorderLayout());
+                    cellPanel.setPreferredSize(new Dimension(150, 40));
+                }
+
+                gridPanel.add(cellPanel, gbc);
+            }
+        }
+
+        JScrollPane scrollPane = new JScrollPane(gridPanel);
+        scrollPane.setBorder(BorderFactory.createLineBorder(BORDER_GRAY, 1));
+        scrollPane.getVerticalScrollBar().setUnitIncrement(16);
+
+        calendarPanel.add(scrollPane, BorderLayout.CENTER);
+
+        return calendarPanel;
+    }    private void refreshTimetable() {
+        // Get the timetable tab panel (index 2)
+        Component timetableTab = mainTabbedPane.getComponentAt(2);
+        if (timetableTab instanceof JPanel) {
+            JPanel panel = (JPanel) timetableTab;
+
+            // Remove all components
+            panel.removeAll();
+
+            // Set layout again
+            panel.setLayout(new BorderLayout(0, 20));
+            panel.setBackground(Color.WHITE);
+            panel.setBorder(BorderFactory.createEmptyBorder(20, 30, 20, 30));
+
+            // Create fresh calendar with updated data
+            JPanel calendarPanel = createCalendarTimetable();
+
+            // Create refresh button
+            JButton refreshBtn = createRoundedButton("Refresh Timetable", TEAL_COLOR);
+            refreshBtn.addActionListener(e -> refreshTimetable());
+
+            JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+            buttonPanel.setBackground(Color.WHITE);
+            buttonPanel.add(refreshBtn);
+
+            // Add components back
+            panel.add(calendarPanel, BorderLayout.CENTER);
+            panel.add(buttonPanel, BorderLayout.SOUTH);
+
+            // Refresh the display
+            panel.revalidate();
+            panel.repaint();
+        }
+    }    // ==================== GRADES TAB ====================
     private JPanel createGradesPanel() {
-        JPanel panel = new JPanel(new BorderLayout(10, 10));
-        panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        JPanel panel = new JPanel(new BorderLayout(0, 20));
+        panel.setBackground(Color.WHITE);
+        panel.setBorder(BorderFactory.createEmptyBorder(20, 30, 20, 30));
 
-        JLabel label = new JLabel("Your Grades");
-        label.setFont(new Font("SansSerif", Font.BOLD, 14));
 
         gradesModel = new DefaultTableModel() {
             @Override
@@ -424,31 +875,31 @@ public class StudentDashboard extends JFrame {
                 "Course Code", "Course Name", "Section", "Component", "Score", "Final Grade"
         });
 
-        JTable gradesTable = new JTable(gradesModel);
-        gradesTable.setRowHeight(25);
+        JTable gradesTable = createStyledTable(gradesModel);
         JScrollPane scroll = new JScrollPane(gradesTable);
+        scroll.setBorder(BorderFactory.createLineBorder(BORDER_GRAY, 1));
+        scroll.getViewport().setBackground(Color.WHITE);
+        scroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+        scroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
 
-        JButton refreshBtn = new JButton("🔄 Refresh Grades");
+
+        JButton refreshBtn = createRoundedButton("Refresh Grades", TEAL_COLOR);
         refreshBtn.addActionListener(e -> loadGrades(gradesModel));
 
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        buttonPanel.setBackground(Color.WHITE);
         buttonPanel.add(refreshBtn);
 
-        panel.add(label, BorderLayout.NORTH);
         panel.add(scroll, BorderLayout.CENTER);
         panel.add(buttonPanel, BorderLayout.SOUTH);
 
         loadGrades(gradesModel);
-
         return panel;
     }
 
     private void loadGrades(DefaultTableModel model) {
         model.setRowCount(0);
-
-        // USE SERVICE LAYER INSTEAD OF DIRECT SQL
         List<GradeView> grades = studentService.getStudentGrades(userId);
-
         for (GradeView grade : grades) {
             Vector<Object> row = new Vector<>();
             row.add(grade.courseCode());
@@ -460,10 +911,8 @@ public class StudentDashboard extends JFrame {
             model.addRow(row);
         }
     }
-
     // ==================== ACTIONS ====================
     private void registerForSection(JTable table, DefaultTableModel model) {
-        // Check if a row is selected
         int selectedRow = table.getSelectedRow();
         if (selectedRow == -1) {
             JOptionPane.showMessageDialog(this,
@@ -480,7 +929,6 @@ public class StudentDashboard extends JFrame {
         int available = (int) model.getValueAt(modelRow, 9);
         int capacity = (int) model.getValueAt(modelRow, 7);
 
-        // Show confirmation dialog
         String confirmMessage = String.format(
                 "Are you sure you want to register for:\n\n" +
                         "Section: %s\n" +
@@ -497,7 +945,6 @@ public class StudentDashboard extends JFrame {
                 JOptionPane.QUESTION_MESSAGE);
 
         if (confirm == JOptionPane.YES_OPTION) {
-            // USE SERVICE LAYER INSTEAD OF DIRECT SQL
             ServiceResult<String> result = studentService.registerForSection(userId, sectionId);
 
             if (result.isSuccess()) {
@@ -510,7 +957,6 @@ public class StudentDashboard extends JFrame {
                                 sectionId, courseCode, courseTitle),
                         "Success", JOptionPane.INFORMATION_MESSAGE);
 
-                // Refresh data
                 loadEnrollments();
                 loadCourseCatalog(model, null, null);
 
@@ -540,7 +986,6 @@ public class StudentDashboard extends JFrame {
                 "Confirm Drop", JOptionPane.YES_NO_OPTION);
 
         if (confirm == JOptionPane.YES_OPTION) {
-            // USE SERVICE LAYER INSTEAD OF DIRECT SQL
             ServiceResult<String> result = studentService.dropSection(userId, sectionId);
 
             if (result.isSuccess()) {
@@ -557,7 +1002,6 @@ public class StudentDashboard extends JFrame {
     }
 
     private void downloadTranscript() {
-        // USE SERVICE LAYER INSTEAD OF DIRECT SQL
         List<TranscriptView> transcript = studentService.getTranscript(userId);
 
         if (transcript.isEmpty()) {
@@ -607,7 +1051,6 @@ public class StudentDashboard extends JFrame {
 
     // ==================== MAINTENANCE MODE ====================
     private void checkMaintenanceMode() {
-        // USE SERVICE LAYER INSTEAD OF DIRECT SQL
         boolean maintenanceMode = studentService.isMaintenanceMode();
         maintenanceBanner.setVisible(maintenanceMode);
     }
@@ -615,20 +1058,14 @@ public class StudentDashboard extends JFrame {
     private void refreshAllData() {
         checkMaintenanceMode();
 
-        // My Enrollments
         loadEnrollments();
 
-        // Course Catalog (reset filters for global refresh)
         if (catalogModel != null) {
             loadCourseCatalog(catalogModel, null, null);
         }
 
-        // Timetable
-        if (timetableModel != null) {
-            loadTimetable(timetableModel);
-        }
+        refreshTimetable();
 
-        // Grades
         if (gradesModel != null) {
             loadGrades(gradesModel);
         }
@@ -638,4 +1075,3 @@ public class StudentDashboard extends JFrame {
                 "Refresh Complete", JOptionPane.INFORMATION_MESSAGE);
     }
 }
-

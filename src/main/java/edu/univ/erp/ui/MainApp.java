@@ -8,25 +8,36 @@ import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
-import java.io.IOException;
+import java.awt.event.*;
+import java.awt.image.BufferedImage;
+import java.io.File;
 import java.io.InputStream;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 
 /**
- * Main login app - cleaned and role-based redirection to dashboards.
+ * MainApp - blurred background + centered glass login card
+ *
+ * Replace FALLBACK_IMAGE_PATH with your image path or place an image named "login_bg.jpg"
+ * in src/main/resources so it can be loaded from the classpath.
  */
 public class MainApp {
 
+    // change to your resource name or absolute path for dev
+    private static final String[] RESOURCE_CANDIDATES = new String[]{ "login_bg.jpg", "iiit.png" };
+    private static final String FALLBACK_IMAGE_PATH = "src/main/resources/iiit.png";
+    private static final Color ACCENT = new Color(0, 180, 180);
+    private static final Color ACCENT_HOVER = new Color(0, 150, 150);
+    // loaded hero original (unscaled)
+    private static BufferedImage heroOriginal = null;
+
     public static void main(String[] args) {
-        // Optional: keep system look & feel for native touches
-        try {
-            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-        } catch (Exception ignored) {}
+        // try native L&F
+        try { UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName()); } catch (Exception ignored) {}
+
+        // load hero image once
+        heroOriginal = loadHeroOriginal();
 
         SwingUtilities.invokeLater(MainApp::createAndShowGUI);
     }
@@ -34,89 +45,83 @@ public class MainApp {
     private static void createAndShowGUI() {
         JFrame frame = new JFrame("University ERP - Login");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.setSize(520, 420);
-        frame.setMinimumSize(new Dimension(480, 360));
+        frame.setSize(1200, 760);
+        frame.setMinimumSize(new Dimension(900, 600));
         frame.setLocationRelativeTo(null);
 
-        // Root panel with subtle background
-        JPanel root = new JPanel(new GridBagLayout());
-        root.setBackground(new Color(245, 245, 245)); // light gray
-        frame.setContentPane(root);
+        // layered pane: background (bgLabel) then content (glass card)
+        JLayeredPane layered = new JLayeredPane();
+        frame.setContentPane(layered);
 
-        // Card (rounded panel)
-        RoundedPanel card = new RoundedPanel(18, Color.WHITE);
-        card.setLayout(new GridBagLayout());
-        card.setBorder(new EmptyBorder(22, 28, 22, 28));
+        // background label (we will set icon dynamically)
+        JLabel bgLabel = new JLabel();
+        bgLabel.setBounds(0, 0, frame.getWidth(), frame.getHeight());
+        layered.add(bgLabel, Integer.valueOf(0));
+
+        // a transparent overlay to slightly darken/blend the blurred image (glazed effect)
+        JPanel overlay = new JPanel();
+        overlay.setOpaque(false);
+        overlay.setBounds(0, 0, frame.getWidth(), frame.getHeight());
+        layered.add(overlay, Integer.valueOf(1));
+
+        // center glass panel (rounded + translucent)
+        RoundedPanel glass = new RoundedPanel(14, new Color(255, 255, 255, 230)); // a bit translucent
+        glass.setLayout(new GridBagLayout());
+        glass.setBorder(new EmptyBorder(28, 36, 28, 36));
+        int cardW = 420;
+        int cardH = 380;
+        glass.setSize(cardW, cardH);
+        // place center by setting bounds later in a component listener
+        layered.add(glass, Integer.valueOf(2));
+
+        // Build form
         GridBagConstraints c = new GridBagConstraints();
+        c.fill = GridBagConstraints.HORIZONTAL;
+        c.gridx = 0; c.gridy = 0;
 
-        // Optional logo - put logo.png in resources, or skip if not present
-        Image logoImg = loadResourceImage("/logo.png", 64, 64);
-        if (logoImg != null) {
-            JLabel logoLabel = new JLabel(new ImageIcon(logoImg));
-            c.gridx = 0; c.gridy = 0; c.gridwidth = 2;
-            c.insets = new Insets(0, 0, 12, 0);
-            card.add(logoLabel, c);
-        }
+        JLabel title = new JLabel("ERP LOGIN");
+        title.setFont(new Font("SansSerif", Font.BOLD, 26));
+        title.setForeground(new Color(6, 150, 140));
+        glass.add(title, c);
 
-        // Title
-        JLabel title = new JLabel("Welcome to ERP Login", SwingConstants.CENTER);
-        title.setFont(new Font("SansSerif", Font.BOLD, 20));
-        title.setForeground(new Color(40, 40, 40));
-        c.gridx = 0; c.gridy = 1; c.gridwidth = 2;
-        c.insets = new Insets(4, 0, 16, 0);
-        card.add(title, c);
+        c.gridy = 1; c.insets = new Insets(8, 0, 16, 0);
+        JLabel subtitle = new JLabel("Sign in");
+        subtitle.setFont(new Font("SansSerif", Font.PLAIN, 13));
+        subtitle.setForeground(new Color(110, 115, 120));
+        glass.add(subtitle, c);
 
-        // username label & field
-        JLabel userLabel = new JLabel("Username:");
-        userLabel.setFont(new Font("SansSerif", Font.PLAIN, 14));
-        userLabel.setForeground(new Color(70, 70, 70));
-        c.gridx = 0; c.gridy = 2; c.gridwidth = 1;
-        c.insets = new Insets(4, 6, 4, 8);
-        c.anchor = GridBagConstraints.LINE_END;
-        card.add(userLabel, c);
+        // Username label + field
+        c.gridy = 2; c.insets = new Insets(12, 0, 6, 0);
+        glass.add(new JLabel("Username"), c);
 
-        JTextField userText = new JTextField(18);
-        userText.setFont(new Font("SansSerif", Font.PLAIN, 14));
-        userText.setToolTipText("Enter your username");
-        userText.setBackground(new Color(250, 253, 255)); // very light pastel
-        userText.setBorder(new LineBorder(new Color(220, 220, 220), 1, true));
-        userText.setCaretColor(new Color(40, 40, 40));
-        c.gridx = 1; c.gridy = 2;
-        c.anchor = GridBagConstraints.LINE_START;
-        card.add(userText, c);
+        c.gridy = 3; c.insets = new Insets(0, 0, 8, 0);
+        JTextField userText = new JTextField();
+        userText.setPreferredSize(new Dimension(260, 28));
+        userText.setBorder(new LineBorder(new Color(220,220,220), 1, true));
+        glass.add(userText, c);
 
-        // password label & field
-        JLabel passwordLabel = new JLabel("Password:");
-        passwordLabel.setFont(new Font("SansSerif", Font.PLAIN, 14));
-        passwordLabel.setForeground(new Color(70, 70, 70));
-        c.gridx = 0; c.gridy = 3; c.anchor = GridBagConstraints.LINE_END;
-        c.insets = new Insets(8, 6, 4, 8);
-        card.add(passwordLabel, c);
+        // Password
+        c.gridy = 4; c.insets = new Insets(10, 0, 6, 0);
+        glass.add(new JLabel("Password"), c);
 
-        JPasswordField passwordText = new JPasswordField(18);
-        passwordText.setFont(new Font("SansSerif", Font.PLAIN, 14));
-        passwordText.setToolTipText("Enter your password");
-        passwordText.setBackground(new Color(250, 253, 255));
-        passwordText.setBorder(new LineBorder(new Color(220, 220, 220), 1, true));
-        passwordText.setCaretColor(new Color(40, 40, 40));
-        c.gridx = 1; c.gridy = 3; c.anchor = GridBagConstraints.LINE_START;
-        card.add(passwordText, c);
+        c.gridy = 5; c.insets = new Insets(0, 0, 12, 0);
+        JPasswordField passwordText = new JPasswordField();
+        passwordText.setPreferredSize(new Dimension(260, 28));
+        passwordText.setBorder(new LineBorder(new Color(220,220,220), 1, true));
+        glass.add(passwordText, c);
 
-        // small spacer
-        c.gridx = 0; c.gridy = 4; c.gridwidth = 2;
-        c.insets = new Insets(12, 0, 8, 0);
-        card.add(Box.createVerticalStrut(6), c);
-
-        // Login button
-        GradientButton loginButton = new GradientButton("Login");
-        loginButton.setPreferredSize(new Dimension(240, 44));
-        loginButton.setFont(new Font("SansSerif", Font.BOLD, 14));
-        loginButton.setToolTipText("Click to sign in");
-
+        // login button (teal with white text)
+        c.gridy = 6; c.insets = new Insets(10, 0, 6, 0);
+        PillButton loginButton = new PillButton("Login"); // Changed class name
+        loginButton.setPreferredSize(new Dimension(260, 44));
         loginButton.setEnabled(false);
+        glass.add(loginButton, c);
+
+
+        // enable based on fields
         DocumentChangeListener.watch(userText, passwordText, enabled -> loginButton.setEnabled(enabled));
 
-        // login action - cleaned and safe
+        // login action (identical to your existing logic)
         loginButton.addActionListener((ActionEvent e) -> {
             String username = userText.getText().trim();
             String password = new String(passwordText.getPassword());
@@ -150,36 +155,29 @@ public class MainApp {
                         uex.printStackTrace();
                     }
 
-                    // success
                     JOptionPane.showMessageDialog(frame, "Login Successful! Redirecting...", "Success", JOptionPane.INFORMATION_MESSAGE);
 
                     final String rid = role == null ? "" : role.toUpperCase();
                     final String uid = userId;
                     final String uname = username;
 
-                    // open the dashboard on the EDT
                     SwingUtilities.invokeLater(() -> {
                         switch (rid) {
                             case "INSTRUCTOR" -> {
                                 InstructorDashboard dash = new InstructorDashboard(uid, uname);
                                 dash.setVisible(true);
-                                frame.dispose();
                             }
                             case "STUDENT" -> {
                                 StudentDashboard sd = new StudentDashboard(uid, uname);
                                 sd.setVisible(true);
-                                frame.dispose();
                             }
                             case "ADMIN" -> {
                                 AdminDashboard adminDash = new AdminDashboard(uid, uname);
                                 adminDash.setVisible(true);
-                                frame.dispose();
                             }
-
-                            default -> {
-                                JOptionPane.showMessageDialog(null, "Unknown role: " + rid);
-                            }
+                            default -> JOptionPane.showMessageDialog(null, "Unknown role: " + rid);
                         }
+                        frame.dispose();
                     });
                 }
 
@@ -189,143 +187,278 @@ public class MainApp {
             }
         });
 
-        // Place button (center aligned)
-        c.gridx = 0; c.gridy = 5; c.gridwidth = 2;
-        c.anchor = GridBagConstraints.CENTER;
-        c.insets = new Insets(10, 0, 0, 0);
-        card.add(loginButton, c);
+        // place components correctly when frame resizes
+        frame.addComponentListener(new ComponentAdapter() {
+            @Override
+            public void componentResized(ComponentEvent e) {
+                int fw = frame.getContentPane().getWidth();
+                int fh = frame.getContentPane().getHeight();
 
-        // bottom small help (register / forgot)
-        JLabel help = new JLabel("<html><a href='#'>Forgot password?</a></html>");
-        help.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        help.setFont(new Font("SansSerif", Font.PLAIN, 12));
-        help.setForeground(new Color(80, 80, 80));
-        c.gridx = 0; c.gridy = 6; c.gridwidth = 2;
-        c.insets = new Insets(12, 0, 0, 0);
-        card.add(help, c);
+                bgLabel.setBounds(0, 0, fw, fh);
+                overlay.setBounds(0, 0, fw, fh);
 
-        // Add the card to center of root
-        GridBagConstraints rootC = new GridBagConstraints();
-        rootC.gridx = 0; rootC.gridy = 0;
-        rootC.anchor = GridBagConstraints.CENTER;
-        root.add(card, rootC); // <-- fixed (removed odd cast)
+                // center the glass panel
+                int gx = Math.max(40, (fw - glass.getWidth()) / 2);
+                int gy = Math.max(40, (fh - glass.getHeight()) / 2);
+                glass.setLocation(gx, gy);
+
+                // update the blurred background image to fit new size (cover)
+                BufferedImage cover = makeBlurredCover(heroOriginal, fw, fh, 14); // blur radius 14
+                if (cover != null) bgLabel.setIcon(new ImageIcon(cover));
+                else bgLabel.setIcon(null);
+            }
+        });
+
+        // initial trigger to paint background and position card
+        SwingUtilities.invokeLater(() -> {
+            int fw = frame.getWidth();
+            int fh = frame.getHeight();
+            bgLabel.setBounds(0, 0, fw, fh);
+            overlay.setBounds(0, 0, fw, fh);
+            int gx = Math.max(40, (fw - glass.getWidth()) / 2);
+            int gy = Math.max(40, (fh - glass.getHeight()) / 2);
+            glass.setLocation(gx, gy);
+
+            BufferedImage cover = makeBlurredCover(heroOriginal, fw, fh, 14);
+            if (cover != null) bgLabel.setIcon(new ImageIcon(cover));
+        });
 
         frame.setVisible(true);
     }
 
-    // helper classes (RoundedPanel, GradientButton, loadResourceImage, DocumentChangeListener)
+    // --- image loading & processing helpers ---
+
+    private static BufferedImage loadHeroOriginal() {
+        // try classpath candidates
+        ClassLoader cl = MainApp.class.getClassLoader();
+        for (String cand : RESOURCE_CANDIDATES) {
+            try (InputStream in = cl.getResourceAsStream(cand)) {
+                if (in != null) {
+                    try { return ImageIO.read(in); } catch (Exception ex) { ex.printStackTrace(); }
+                }
+            } catch (Exception ignored) {}
+        }
+        // try MainApp.class.getResourceAsStream variants
+        for (String cand : RESOURCE_CANDIDATES) {
+            String p = cand.startsWith("/") ? cand : "/" + cand;
+            try (InputStream in = MainApp.class.getResourceAsStream(p)) {
+                if (in != null) {
+                    try { return ImageIO.read(in); } catch (Exception ex) { ex.printStackTrace(); }
+                }
+            } catch (Exception ignored) {}
+        }
+        // fallback absolute path
+        try {
+            File f = new File(FALLBACK_IMAGE_PATH);
+            if (f.exists()) return ImageIO.read(f);
+        } catch (Exception ignored) {}
+        return null;
+    }
+
+    /**
+     * Produce a cover-fit scaled image (center-cropped) then blur it.
+     */
+    private static BufferedImage makeBlurredCover(BufferedImage src, int targetW, int targetH, int blurRadius) {
+        if (src == null || targetW <= 0 || targetH <= 0) return null;
+
+        double scaleX = (double) targetW / src.getWidth();
+        double scaleY = (double) targetH / src.getHeight();
+        double scale = Math.max(scaleX, scaleY); // cover
+
+        int scaledW = (int) Math.round(src.getWidth() * scale);
+        int scaledH = (int) Math.round(src.getHeight() * scale);
+
+        Image tmp = src.getScaledInstance(scaledW, scaledH, Image.SCALE_SMOOTH);
+        BufferedImage scaled = new BufferedImage(scaledW, scaledH, BufferedImage.TYPE_INT_RGB);
+        Graphics2D g = scaled.createGraphics();
+        g.drawImage(tmp, 0, 0, null);
+        g.dispose();
+
+        int x = (scaledW - targetW) / 2;
+        int y = (scaledH - targetH) / 2;
+        BufferedImage cropped = scaled.getSubimage(x, y, targetW, targetH);
+
+        // moderate blur radius: not too heavy
+        BufferedImage blurred = applyGaussianBlur(cropped, blurRadius);
+
+        // apply desaturation + dark translucent overlay to get the "navbar-style" glaze
+        return applyTintAndDesaturate(blurred, 0.20f, new Color(0, 0, 0, 110));
+    }
+
+    /**
+     * Fast box-blur approximation (two-pass horizontal+vertical).
+     * This is reasonably fast for UI use — adjust radius 6..12.
+     */
+    private static BufferedImage applyGaussianBlur(BufferedImage img, int radius) {
+        if (radius < 1) return img;
+        int w = img.getWidth();
+        int h = img.getHeight();
+        int[] inPixels = img.getRGB(0, 0, w, h, null, 0, w);
+        int[] temp = new int[inPixels.length];
+        int[] outPixels = new int[inPixels.length];
+
+        int kernelSize = radius * 2 + 1;
+
+        // horizontal pass
+        for (int y = 0; y < h; y++) {
+            int yw = y * w;
+            for (int x = 0; x < w; x++) {
+                long r = 0, g = 0, b = 0;
+                for (int k = -radius; k <= radius; k++) {
+                    int px = x + k;
+                    if (px < 0) px = 0;
+                    else if (px >= w) px = w - 1;
+                    int rgb = inPixels[yw + px];
+                    r += (rgb >> 16) & 0xFF;
+                    g += (rgb >> 8) & 0xFF;
+                    b += rgb & 0xFF;
+                }
+                int rr = (int) (r / kernelSize);
+                int gg = (int) (g / kernelSize);
+                int bb = (int) (b / kernelSize);
+                temp[yw + x] = (0xFF << 24) | (rr << 16) | (gg << 8) | bb;
+            }
+        }
+
+        // vertical pass
+        for (int x = 0; x < w; x++) {
+            for (int y = 0; y < h; y++) {
+                long r = 0, g = 0, b = 0;
+                for (int k = -radius; k <= radius; k++) {
+                    int py = y + k;
+                    if (py < 0) py = 0;
+                    else if (py >= h) py = h - 1;
+                    int rgb = temp[py * w + x];
+                    r += (rgb >> 16) & 0xFF;
+                    g += (rgb >> 8) & 0xFF;
+                    b += rgb & 0xFF;
+                }
+                int rr = (int) (r / kernelSize);
+                int gg = (int) (g / kernelSize);
+                int bb = (int) (b / kernelSize);
+                outPixels[y * w + x] = (0xFF << 24) | (rr << 16) | (gg << 8) | bb;
+            }
+        }
+
+        BufferedImage out = new BufferedImage(w, h, BufferedImage.TYPE_INT_RGB);
+        out.setRGB(0, 0, w, h, outPixels, 0, w);
+        return out;
+    }
+
+    /**
+     * Slightly desaturate and apply a translucent dark tint overlay.
+     * - desaturateAmount: 0..1 where 0 = original, 1 = full grayscale
+     * - overlay: Color with alpha used to darken (e.g., new Color(0,0,0,110))
+     */
+    private static BufferedImage applyTintAndDesaturate(BufferedImage src, float desaturateAmount, Color overlay) {
+        if (src == null) return null;
+        int w = src.getWidth(), h = src.getHeight();
+        BufferedImage out = new BufferedImage(w, h, BufferedImage.TYPE_INT_RGB);
+        Graphics2D g = out.createGraphics();
+        g.drawImage(src, 0, 0, null);
+
+        // simple desaturation per-pixel (cheap)
+        if (desaturateAmount > 0f) {
+            int[] pixels = out.getRGB(0, 0, w, h, null, 0, w);
+            for (int i = 0; i < pixels.length; i++) {
+                int argb = pixels[i];
+                int r = (argb >> 16) & 0xFF;
+                int gcol = (argb >> 8) & 0xFF;
+                int b = argb & 0xFF;
+                // luminance
+                int lum = (int)(0.2126*r + 0.7152*gcol + 0.0722*b);
+                int nr = (int)(r*(1-desaturateAmount) + lum*desaturateAmount);
+                int ng = (int)(gcol*(1-desaturateAmount) + lum*desaturateAmount);
+                int nb = (int)(b*(1-desaturateAmount) + lum*desaturateAmount);
+                pixels[i] = (0xFF<<24) | (nr<<16) | (ng<<8) | nb;
+            }
+            out.setRGB(0,0,w,h,pixels,0,w);
+        }
+
+        // draw translucent overlay to dim the image (glazed look)
+        if (overlay != null) {
+            g.setColor(overlay);
+            g.fillRect(0, 0, w, h);
+        }
+        g.dispose();
+        return out;
+    }
+
+    // --- UI helper classes ---
 
     static class RoundedPanel extends JPanel {
         private final int radius;
-        private final Color backgroundColor;
+        private final Color bg;
 
         RoundedPanel(int radius, Color bg) {
             super();
             this.radius = radius;
-            this.backgroundColor = bg != null ? bg : getBackground();
+            this.bg = bg;
             setOpaque(false);
         }
 
         @Override
         protected void paintComponent(Graphics g) {
-            // paint the rounded background, then allow children to paint
             Graphics2D g2 = (Graphics2D) g.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            g2.setColor(backgroundColor);
+            g2.setColor(bg);
             g2.fillRoundRect(0, 0, getWidth(), getHeight(), radius, radius);
             g2.dispose();
             super.paintComponent(g);
         }
     }
 
-    private static Image loadResourceImage(String path, int w, int h) {
-        try (InputStream in = MainApp.class.getResourceAsStream(path)) {
-            if (in == null) return null;
-            Image img = ImageIO.read(in);
-            return img.getScaledInstance(w, h, Image.SCALE_SMOOTH);
-        } catch (IOException e) {
-            return null;
-        }
-    }
-
-    static class GradientButton extends JButton {
-
-        private Color base = new Color(173, 216, 230);
-        private Color base2 = new Color(135, 206, 250);
-
-        private Color hover1 = new Color(160, 200, 220);
-        private Color hover2 = new Color(120, 186, 236);
-
-        private boolean hovering = false;
-
-        GradientButton(String text) {
+    // === PASTE THIS CLASS AT THE BOTTOM ===
+    private static class PillButton extends JButton {
+        public PillButton(String text) {
             super(text);
-            setOpaque(false);
             setContentAreaFilled(false);
             setFocusPainted(false);
-            setForeground(Color.BLACK);
-            setBorder(BorderFactory.createEmptyBorder(8, 16, 8, 16));
-            initHover();
-            setHorizontalAlignment(SwingConstants.CENTER);
-        }
+            setBorderPainted(false);
+            setFont(new Font("Segoe UI", Font.BOLD, 14)); // 14 looks better for main login
+            setForeground(Color.WHITE);
+            setBackground(ACCENT);
+            setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            setPreferredSize(new Dimension(140, 40));
 
-        private void initHover() {
             addMouseListener(new MouseAdapter() {
-                @Override
-                public void mouseEntered(MouseEvent e) {
-                    hovering = true;
-                    repaint();
-                }
-
-                @Override
-                public void mouseExited(MouseEvent e) {
-                    hovering = false;
-                    repaint();
-                }
+                @Override public void mouseEntered(MouseEvent e) { if(isEnabled()) setBackground(ACCENT_HOVER); }
+                @Override public void mouseExited(MouseEvent e) { setBackground(ACCENT); }
             });
         }
 
         @Override
         protected void paintComponent(Graphics g) {
-            Graphics2D g2 = (Graphics2D) g.create();
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
-                    RenderingHints.VALUE_ANTIALIAS_ON);
-
-            int w = getWidth();
-            int h = getHeight();
-
-            GradientPaint gp;
-
-            if (!hovering) {
-                gp = new GradientPaint(0, 0, base, 0, h, base2);
+            // Handle disable state graying
+            if (!isEnabled()) {
+                g.setColor(new Color(200, 200, 200));
+            } else if (getModel().isPressed()) {
+                g.setColor(getBackground().darker());
             } else {
-                gp = new GradientPaint(0, 0, hover1, 0, h, hover2);
+                g.setColor(getBackground());
             }
 
-            g2.setPaint(gp);
-            g2.fillRoundRect(0, 0, w, h, 15, 15);
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-            // draw the text / children
-            super.paintComponent(g);
+            // Draw the pill shape
+            g2.fillRoundRect(0, 0, getWidth(), getHeight(), 30, 30);
             g2.dispose();
+
+            super.paintComponent(g);
         }
     }
-
     static class DocumentChangeListener {
-        static void watch(JTextField a, JPasswordField b,
-                          java.util.function.Consumer<Boolean> onChange) {
-
-            javax.swing.event.DocumentListener dl =
-                    new javax.swing.event.DocumentListener() {
-                        private void update() {
-                            boolean enabled = !a.getText().trim().isEmpty()
-                                    && b.getPassword().length > 0;
-                            onChange.accept(enabled);
-                        }
-                        public void insertUpdate(javax.swing.event.DocumentEvent e) { update(); }
-                        public void removeUpdate(javax.swing.event.DocumentEvent e) { update(); }
-                        public void changedUpdate(javax.swing.event.DocumentEvent e) { update(); }
-                    };
+        static void watch(JTextField a, JPasswordField b, java.util.function.Consumer<Boolean> onChange) {
+            javax.swing.event.DocumentListener dl = new javax.swing.event.DocumentListener() {
+                private void update() {
+                    boolean enabled = !a.getText().trim().isEmpty() && b.getPassword().length > 0;
+                    onChange.accept(enabled);
+                }
+                public void insertUpdate(javax.swing.event.DocumentEvent e) { update(); }
+                public void removeUpdate(javax.swing.event.DocumentEvent e) { update(); }
+                public void changedUpdate(javax.swing.event.DocumentEvent e) { update(); }
+            };
             a.getDocument().addDocumentListener(dl);
             b.getDocument().addDocumentListener(dl);
         }

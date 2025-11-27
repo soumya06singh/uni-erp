@@ -117,24 +117,7 @@ public class StudentDashboard extends JFrame {
             }
         });
 
-// Add Welcome message at the top of content area
-        JPanel welcomePanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 20, 15));
-        welcomePanel.setBackground(Color.WHITE);
-        welcomePanel.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, BORDER_GRAY));
-
-        JLabel welcomeLabel = new JLabel("Welcome, " + username+ " !");
-        welcomeLabel.setFont(new Font("Segoe UI", Font.BOLD, 18));
-        welcomeLabel.setForeground(TEAL_COLOR);
-        welcomePanel.add(welcomeLabel);
-
-// Add welcome panel to content area
-        JPanel contentWithWelcome = new JPanel(new BorderLayout(0, 0));
-        contentWithWelcome.setBackground(Color.WHITE);
-        contentWithWelcome.add(welcomePanel, BorderLayout.NORTH);
-        contentWithWelcome.add(tabbedPane, BorderLayout.CENTER);
-
-        contentArea.add(contentWithWelcome, BorderLayout.CENTER);
-
+        contentArea.add(tabbedPane, BorderLayout.CENTER);
         // Bottom buttons panel
         JPanel bottomPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 15));
         bottomPanel.setBackground(Color.WHITE);
@@ -371,6 +354,13 @@ public class StudentDashboard extends JFrame {
         panel.setBackground(Color.WHITE);
         panel.setBorder(BorderFactory.createEmptyBorder(20, 30, 20, 30));
 
+        // ADD THIS - Welcome header
+        JLabel headerLabel = new JLabel("Welcome, " + username + " !");
+        headerLabel.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        headerLabel.setForeground(TEAL_COLOR);
+        headerLabel.setBorder(BorderFactory.createEmptyBorder(0, 0, 15, 0));
+
+        panel.add(headerLabel, BorderLayout.NORTH);  // Add this line
 
         enrollModel = new DefaultTableModel() {
             @Override
@@ -426,119 +416,129 @@ public class StudentDashboard extends JFrame {
     }
     // ==================== COURSE CATALOG TAB ====================
     private JPanel createCourseCatalogPanel() {
-        JPanel panel = new JPanel(new BorderLayout(0, 20));
-        panel.setBackground(Color.WHITE);
-        panel.setBorder(BorderFactory.createEmptyBorder(20, 30, 20, 30));
+            JPanel panel = new JPanel(new BorderLayout(0, 20));
+            panel.setBackground(Color.WHITE);
+            panel.setBorder(BorderFactory.createEmptyBorder(20, 30, 20, 30));
+            // ADD THIS - Header
+            JLabel headerLabel = new JLabel("Browse & Register for Courses");
+            headerLabel.setFont(new Font("Segoe UI", Font.BOLD, 18));
+            headerLabel.setForeground(TEAL_COLOR);
+            headerLabel.setBorder(BorderFactory.createEmptyBorder(0, 0, 15, 0));
+
+            // Wrap header and search panel together
+            JPanel topWrapper = new JPanel(new BorderLayout(0, 15));
+            topWrapper.setBackground(Color.WHITE);
+            topWrapper.add(headerLabel, BorderLayout.NORTH);
 
 
-        // Search panel
-        JPanel searchPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 10));
-        searchPanel.setBackground(Color.WHITE);
-        searchPanel.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(BORDER_GRAY, 1),
-                BorderFactory.createEmptyBorder(10, 15, 10, 15)
-        ));
+
+            // Search panel
+            JPanel searchPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 10));
+            searchPanel.setBackground(Color.WHITE);
+            searchPanel.setBorder(BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(BORDER_GRAY, 1),
+                    BorderFactory.createEmptyBorder(10, 15, 10, 15)
+            ));
+        topWrapper.add(searchPanel, BorderLayout.CENTER);
+
 
         JLabel searchLabel = new JLabel("Search Course:");
-        searchLabel.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        searchPanel.add(searchLabel);
+            searchLabel.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+            searchPanel.add(searchLabel);
 
-        JTextField searchField = new JTextField(20);
-        searchField.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        searchField.setPreferredSize(new Dimension(200, 30));
-        searchPanel.add(searchField);
+            JTextField searchField = new JTextField(20);
+            searchField.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+            searchField.setPreferredSize(new Dimension(200, 30));
+            searchPanel.add(searchField);
 
-        JLabel semLabel = new JLabel("Semester:");
-        semLabel.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        searchPanel.add(semLabel);
+            JLabel semLabel = new JLabel("Semester:");
+            semLabel.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+            searchPanel.add(semLabel);
 
-        JComboBox<String> semesterCombo = new JComboBox<>(new String[]{"All", "Fall", "Spring", "Summer","Winter"});
-        semesterCombo.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        semesterCombo.setPreferredSize(new Dimension(120, 30));
-        searchPanel.add(semesterCombo);
+            JComboBox<String> semesterCombo = new JComboBox<>(new String[]{"All", "Fall", "Spring", "Summer","Winter"});
+            semesterCombo.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+            semesterCombo.setPreferredSize(new Dimension(120, 30));
+            searchPanel.add(semesterCombo);
 
-        JButton searchBtn = createRoundedButton("Search", TEAL_COLOR);
-        searchPanel.add(searchBtn);
+            JButton searchBtn = createRoundedButton("Search", TEAL_COLOR);
+            searchPanel.add(searchBtn);
 
-        JButton clearBtn = createRoundedButton("Clear", TEAL_COLOR);
-        clearBtn.addActionListener(e -> {
-            searchField.setText("");
-            semesterCombo.setSelectedIndex(0);
-        });
-        searchPanel.add(clearBtn);
+            JButton clearBtn = createRoundedButton("Clear", TEAL_COLOR);
+            clearBtn.addActionListener(e -> {
+                searchField.setText("");
+                semesterCombo.setSelectedIndex(0);
+            });
+            searchPanel.add(clearBtn);
 
-        // Catalog table
-        catalogModel = new DefaultTableModel() {
-            @Override
-            public boolean isCellEditable(int row, int column) {
-                return false;
-            }
-        };
+            // Catalog table
+            catalogModel = new DefaultTableModel() {
+                @Override
+                public boolean isCellEditable(int row, int column) {
+                    return false;
+                }
+            };
 
-        catalogModel.setColumnIdentifiers(new Object[]{
-                "Section ID", "Course Code", "Course Title", "Credits", "Instructor",
-                "Semester", "Room", "Capacity", "Enrolled", "Available"
-        });
+            catalogModel.setColumnIdentifiers(new Object[]{
+                    "Section ID", "Course Code", "Course Title", "Credits", "Instructor",
+                    "Semester", "Room", "Capacity", "Enrolled", "Available"
+            });
 
-        JTable catalogTable = createStyledTable(catalogModel);
-        catalogTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        TableRowSorter<DefaultTableModel> sorter = new TableRowSorter<>(catalogModel);
-        catalogTable.setRowSorter(sorter);
+            JTable catalogTable = createStyledTable(catalogModel);
+            catalogTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+            TableRowSorter<DefaultTableModel> sorter = new TableRowSorter<>(catalogModel);
+            catalogTable.setRowSorter(sorter);
 
-        JScrollPane scroll = new JScrollPane(catalogTable);
-        scroll.setBorder(BorderFactory.createLineBorder(BORDER_GRAY, 1));
-        scroll.getViewport().setBackground(Color.WHITE);
-        scroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
-        scroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+            JScrollPane scroll = new JScrollPane(catalogTable);
+            scroll.setBorder(BorderFactory.createLineBorder(BORDER_GRAY, 1));
+            scroll.getViewport().setBackground(Color.WHITE);
+            scroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+            scroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
 
 
-        // Action buttons
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 10));
-        buttonPanel.setBackground(Color.WHITE);
+            // Action buttons
+            JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 10));
+            buttonPanel.setBackground(Color.WHITE);
 
-        JButton registerBtn = createRoundedButton("Register for Selected Section", TEAL_COLOR);
-        registerBtn.addActionListener(e -> registerForSection(catalogTable, catalogModel));
+            JButton registerBtn = createRoundedButton("Register for Selected Section", TEAL_COLOR);
+            registerBtn.addActionListener(e -> registerForSection(catalogTable, catalogModel));
 
-        JButton refreshCatalogBtn = createRoundedButton("Refresh Catalog", TEAL_COLOR);
-        refreshCatalogBtn.addActionListener(e -> {
+            JButton refreshCatalogBtn = createRoundedButton("Refresh Catalog", TEAL_COLOR);
+            refreshCatalogBtn.addActionListener(e -> {
+                loadCourseCatalog(catalogModel, null, null);
+                searchField.setText("");
+                semesterCombo.setSelectedIndex(0);
+            });
+
+            JButton viewDetailsBtn = createRoundedButton("View Section Details", TEAL_COLOR);
+            viewDetailsBtn.addActionListener(e -> viewSectionDetails(catalogTable, catalogModel));
+
+            buttonPanel.add(registerBtn);
+            buttonPanel.add(refreshCatalogBtn);
+            buttonPanel.add(viewDetailsBtn);
+
+            JLabel hintLabel = new JLabel("Tip: Select a section from the table and click 'Register' to enroll");
+            hintLabel.setFont(new Font("Segoe UI", Font.ITALIC, 11));
+            hintLabel.setForeground(Color.GRAY);
+            hintLabel.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
+
+            searchBtn.addActionListener(e -> {
+                String keyword = searchField.getText().trim();
+                String semester = (String) semesterCombo.getSelectedItem();
+                if ("All".equals(semester)) semester = null;
+                loadCourseCatalog(catalogModel, keyword, semester);
+            });
+            panel.add(topWrapper, BorderLayout.NORTH);
+
+            JPanel bottomSection = new JPanel(new BorderLayout());
+            bottomSection.setBackground(Color.WHITE);
+            bottomSection.add(buttonPanel, BorderLayout.NORTH);
+            bottomSection.add(hintLabel, BorderLayout.SOUTH);
+
+            panel.add(scroll, BorderLayout.CENTER);
+            panel.add(bottomSection, BorderLayout.SOUTH);
+
             loadCourseCatalog(catalogModel, null, null);
-            searchField.setText("");
-            semesterCombo.setSelectedIndex(0);
-        });
-
-        JButton viewDetailsBtn = createRoundedButton("View Section Details", TEAL_COLOR);
-        viewDetailsBtn.addActionListener(e -> viewSectionDetails(catalogTable, catalogModel));
-
-        buttonPanel.add(registerBtn);
-        buttonPanel.add(refreshCatalogBtn);
-        buttonPanel.add(viewDetailsBtn);
-
-        JLabel hintLabel = new JLabel("Tip: Select a section from the table and click 'Register' to enroll");
-        hintLabel.setFont(new Font("Segoe UI", Font.ITALIC, 11));
-        hintLabel.setForeground(Color.GRAY);
-        hintLabel.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
-
-        searchBtn.addActionListener(e -> {
-            String keyword = searchField.getText().trim();
-            String semester = (String) semesterCombo.getSelectedItem();
-            if ("All".equals(semester)) semester = null;
-            loadCourseCatalog(catalogModel, keyword, semester);
-        });
-
-        JPanel topSection = new JPanel(new BorderLayout(0, 15));
-        topSection.setBackground(Color.WHITE);
-        topSection.add(searchPanel, BorderLayout.NORTH);  // Changed from CENTER to NORTH
-        JPanel bottomSection = new JPanel(new BorderLayout());
-        bottomSection.setBackground(Color.WHITE);
-        bottomSection.add(buttonPanel, BorderLayout.NORTH);
-        bottomSection.add(hintLabel, BorderLayout.SOUTH);
-
-        panel.add(topSection, BorderLayout.NORTH);
-        panel.add(scroll, BorderLayout.CENTER);
-        panel.add(bottomSection, BorderLayout.SOUTH);
-
-        loadCourseCatalog(catalogModel, null, null);
-        return panel;
+            return panel;
     }
 
     private void loadCourseCatalog(DefaultTableModel model, String keyword, String semester) {
@@ -649,8 +649,17 @@ public class StudentDashboard extends JFrame {
         JPanel panel = new JPanel(new BorderLayout(0, 20));
         panel.setBackground(Color.WHITE);
         panel.setBorder(BorderFactory.createEmptyBorder(20, 30, 20, 30));
+        JLabel headerLabel = new JLabel("Your Weekly Schedule");
+        headerLabel.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        headerLabel.setForeground(TEAL_COLOR);
+        headerLabel.setBorder(BorderFactory.createEmptyBorder(0, 0, 15, 0));
 
         JPanel calendarPanel = createCalendarTimetable();
+        JPanel contentWrapper = new JPanel(new BorderLayout(0, 0));
+        contentWrapper.setBackground(Color.WHITE);
+        contentWrapper.add(headerLabel, BorderLayout.NORTH);
+        contentWrapper.add(calendarPanel, BorderLayout.CENTER);
+
 
         JButton refreshBtn = createRoundedButton("Refresh Timetable", TEAL_COLOR);
         refreshBtn.addActionListener(e -> refreshTimetable());
@@ -659,7 +668,7 @@ public class StudentDashboard extends JFrame {
         buttonPanel.setBackground(Color.WHITE);
         buttonPanel.add(refreshBtn);
 
-        panel.add(calendarPanel, BorderLayout.CENTER);
+        panel.add(contentWrapper, BorderLayout.CENTER);
         panel.add(buttonPanel, BorderLayout.SOUTH);
 
         return panel;
@@ -707,9 +716,10 @@ public class StudentDashboard extends JFrame {
         }
 
         // Load timetable data
+// Load timetable data
         List<TimetableView> timetable = studentService.getStudentTimetable(userId);
 
-        // Create a map: day -> time -> list of courses (to handle multiple classes at same time)
+// Create a map: day -> timeSlot -> list of courses at that START time only
         Map<String, Map<String, List<TimetableView>>> scheduleMap = new HashMap<>();
         for (TimetableView entry : timetable) {
             scheduleMap.putIfAbsent(entry.day(), new HashMap<>());
@@ -719,10 +729,10 @@ public class StudentDashboard extends JFrame {
             scheduleMap.get(entry.day()).get(timeKey).add(entry);
         }
 
-        // Track which cells are occupied by spanning cells
+// Track which cells are occupied by spanning cells
         Set<String> occupiedCells = new HashSet<>();
 
-        // Add time slots and course cells
+// Add time slots and course cells
         for (int row = 0; row < timeSlots.length; row++) {
             gbc.gridy = row + 1;
             gbc.gridx = 0;
@@ -750,7 +760,7 @@ public class StudentDashboard extends JFrame {
                     continue;
                 }
 
-                // Check if there are classes at this time
+                // Check if there are classes STARTING at this time
                 List<TimetableView> classesAtThisTime = null;
                 if (scheduleMap.containsKey(day) && scheduleMap.get(day).containsKey(currentTime)) {
                     classesAtThisTime = scheduleMap.get(day).get(currentTime);
@@ -761,11 +771,36 @@ public class StudentDashboard extends JFrame {
                 cellPanel.setBackground(Color.WHITE);
 
                 if (classesAtThisTime != null && !classesAtThisTime.isEmpty()) {
-                    // Span 2 rows for 1-hour class (30 min + 30 min)
-                    gbc.gridheight = 2;
-                    occupiedCells.add(cellKey);
-                    if (row + 1 < timeSlots.length) {
-                        occupiedCells.add(day + "-" + (row + 1));
+                    // Get the first class to determine duration
+                    TimetableView firstClass = classesAtThisTime.get(0);
+
+                    // Parse start time from current slot
+                    String[] startParts = currentTime.split(":");
+                    int startHour = Integer.parseInt(startParts[0]);
+                    int startMin = Integer.parseInt(startParts[1]);
+                    int startTotalMinutes = startHour * 60 + startMin;
+
+                    // Parse end time from the database
+                    String endTimeStr = firstClass.endTime().substring(0, 5); // Get HH:MM from HH:MM:SS or HH:MM
+                    String[] endParts = endTimeStr.split(":");
+                    int endHour = Integer.parseInt(endParts[0]);
+                    int endMin = Integer.parseInt(endParts[1]);
+                    int endTotalMinutes = endHour * 60 + endMin;
+
+                    // Calculate duration in minutes
+                    int durationMinutes = endTotalMinutes - startTotalMinutes;
+
+                    // Calculate how many 30-minute slots needed
+                    int slotsNeeded = (int) Math.ceil(durationMinutes / 30.0);
+
+                    // Set gridheight to span multiple rows
+                    gbc.gridheight = slotsNeeded;
+
+                    // Mark all occupied cells
+                    for (int i = 0; i < slotsNeeded; i++) {
+                        if (row + i < timeSlots.length) {
+                            occupiedCells.add(day + "-" + (row + i));
+                        }
                     }
 
                     cellPanel.setBackground(LIGHT_TEAL_BG);
@@ -806,17 +841,15 @@ public class StudentDashboard extends JFrame {
                         }
                     }
 
-                    cellPanel.setPreferredSize(new Dimension(150, 80)); // Double height for 2 rows
+                    cellPanel.setPreferredSize(new Dimension(150, 40 * slotsNeeded));
                 } else {
                     // Empty cell
                     cellPanel.setLayout(new BorderLayout());
                     cellPanel.setPreferredSize(new Dimension(150, 40));
                 }
-
                 gridPanel.add(cellPanel, gbc);
             }
         }
-
         JScrollPane scrollPane = new JScrollPane(gridPanel);
         scrollPane.setBorder(BorderFactory.createLineBorder(BORDER_GRAY, 1));
         scrollPane.getVerticalScrollBar().setUnitIncrement(16);
@@ -862,6 +895,13 @@ public class StudentDashboard extends JFrame {
         JPanel panel = new JPanel(new BorderLayout(0, 20));
         panel.setBackground(Color.WHITE);
         panel.setBorder(BorderFactory.createEmptyBorder(20, 30, 20, 30));
+        JLabel headerLabel = new JLabel("Your Academic Performance");
+        headerLabel.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        headerLabel.setForeground(TEAL_COLOR);
+        headerLabel.setBorder(BorderFactory.createEmptyBorder(0, 0, 15, 0));
+
+        panel.add(headerLabel, BorderLayout.NORTH);  // Add this line
+
 
 
         gradesModel = new DefaultTableModel() {

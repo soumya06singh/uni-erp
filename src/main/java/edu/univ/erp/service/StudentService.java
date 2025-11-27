@@ -52,7 +52,8 @@ public class StudentService {
             String course,
             String sectionId,
             String room,
-            String instructorId
+            String instructorId,
+            String endTime
     ) {}
 
     /**
@@ -351,7 +352,7 @@ public class StudentService {
     public List<TimetableView> getStudentTimetable(String studentId) {
         List<TimetableView> timetable = new ArrayList<>();
 
-        String sql = "SELECT sec.day, CONCAT(sec.start_time, ' - ', sec.end_time) AS time, " +
+        String sql = "SELECT sec.day, sec.start_time AS time, sec.end_time, " +  // Changed: separate start_time and end_time
                 "CONCAT(c.course_code, ' - ', c.course_name) AS course, " +
                 "sec.section_id, sec.room, COALESCE(instr.user_id, 'TBA') AS instructor_id " +
                 "FROM enrollments e " +
@@ -374,7 +375,8 @@ public class StudentService {
                             rs.getString("course"),
                             rs.getString("section_id"),
                             rs.getString("room"),
-                            rs.getString("instructor_id")
+                            rs.getString("instructor_id"),
+                            rs.getString("end_time")  // Add this
                     ));
                 }
             }
@@ -384,9 +386,7 @@ public class StudentService {
         }
 
         return timetable;
-    }
-
-    /**
+    }    /**
      * Get student grades
      */
         public List<GradeView> getStudentGrades(String studentId) {

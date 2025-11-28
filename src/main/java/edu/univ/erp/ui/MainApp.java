@@ -16,27 +16,18 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 
-/**
- * MainApp - blurred background + centered glass login card
- *
- * Replace FALLBACK_IMAGE_PATH with your image path or place an image named "login_bg.jpg"
- * in src/main/resources so it can be loaded from the classpath.
- */
 public class MainApp {
 
-    // change to your resource name or absolute path for dev
     private static final String[] RESOURCE_CANDIDATES = new String[]{ "login_bg.jpg", "iiit.png" };
     private static final String FALLBACK_IMAGE_PATH = "src/main/resources/iiit.png";
     private static final Color ACCENT = new Color(0, 180, 180);
     private static final Color ACCENT_HOVER = new Color(0, 150, 150);
-    // loaded hero original (unscaled)
+
     private static BufferedImage heroOriginal = null;
 
     public static void main(String[] args) {
-        // try native L&F
         try { UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName()); } catch (Exception ignored) {}
 
-        // load hero image once
         heroOriginal = loadHeroOriginal();
 
         SwingUtilities.invokeLater(MainApp::createAndShowGUI);
@@ -49,32 +40,28 @@ public class MainApp {
         frame.setMinimumSize(new Dimension(900, 600));
         frame.setLocationRelativeTo(null);
 
-        // layered pane: background (bgLabel) then content (glass card)
         JLayeredPane layered = new JLayeredPane();
         frame.setContentPane(layered);
 
-        // background label (we will set icon dynamically)
+        // background label
         JLabel bgLabel = new JLabel();
         bgLabel.setBounds(0, 0, frame.getWidth(), frame.getHeight());
         layered.add(bgLabel, Integer.valueOf(0));
 
-        // a transparent overlay to slightly darken/blend the blurred image (glazed effect)
+        //a transparent look
         JPanel overlay = new JPanel();
         overlay.setOpaque(false);
         overlay.setBounds(0, 0, frame.getWidth(), frame.getHeight());
         layered.add(overlay, Integer.valueOf(1));
 
-        // center glass panel (rounded + translucent)
         RoundedPanel glass = new RoundedPanel(14, new Color(255, 255, 255, 230)); // a bit translucent
         glass.setLayout(new GridBagLayout());
         glass.setBorder(new EmptyBorder(28, 36, 28, 36));
         int cardW = 420;
         int cardH = 380;
         glass.setSize(cardW, cardH);
-        // place center by setting bounds later in a component listener
         layered.add(glass, Integer.valueOf(2));
 
-        // Build form
         GridBagConstraints c = new GridBagConstraints();
         c.fill = GridBagConstraints.HORIZONTAL;
         c.gridx = 0; c.gridy = 0;
@@ -90,7 +77,7 @@ public class MainApp {
         subtitle.setForeground(new Color(110, 115, 120));
         glass.add(subtitle, c);
 
-        // Username label + field
+        // Username label
         c.gridy = 2; c.insets = new Insets(12, 0, 6, 0);
         glass.add(new JLabel("Username"), c);
 
@@ -110,18 +97,15 @@ public class MainApp {
         passwordText.setBorder(new LineBorder(new Color(220,220,220), 1, true));
         glass.add(passwordText, c);
 
-        // login button (teal with white text)
+        // login button
         c.gridy = 6; c.insets = new Insets(10, 0, 6, 0);
         PillButton loginButton = new PillButton("Login"); // Changed class name
         loginButton.setPreferredSize(new Dimension(260, 44));
         loginButton.setEnabled(false);
         glass.add(loginButton, c);
 
-
-        // enable based on fields
         DocumentChangeListener.watch(userText, passwordText, enabled -> loginButton.setEnabled(enabled));
 
-        // login action (identical to your existing logic)
         loginButton.addActionListener((ActionEvent e) -> {
             String username = userText.getText().trim();
             String password = new String(passwordText.getPassword());
@@ -146,7 +130,6 @@ public class MainApp {
                         return;
                     }
 
-                    // update last_login (non-fatal if fails)
                     try (PreparedStatement updateStmt = conn.prepareStatement("UPDATE users_auth SET last_login = ? WHERE user_id = ?")) {
                         updateStmt.setLong(1, System.currentTimeMillis());
                         updateStmt.setString(2, userId);
@@ -187,7 +170,6 @@ public class MainApp {
             }
         });
 
-        // place components correctly when frame resizes
         frame.addComponentListener(new ComponentAdapter() {
             @Override
             public void componentResized(ComponentEvent e) {
@@ -197,19 +179,16 @@ public class MainApp {
                 bgLabel.setBounds(0, 0, fw, fh);
                 overlay.setBounds(0, 0, fw, fh);
 
-                // center the glass panel
                 int gx = Math.max(40, (fw - glass.getWidth()) / 2);
                 int gy = Math.max(40, (fh - glass.getHeight()) / 2);
                 glass.setLocation(gx, gy);
 
-                // update the blurred background image to fit new size (cover)
                 BufferedImage cover = makeBlurredCover(heroOriginal, fw, fh, 14); // blur radius 14
                 if (cover != null) bgLabel.setIcon(new ImageIcon(cover));
                 else bgLabel.setIcon(null);
             }
         });
 
-        // initial trigger to paint background and position card
         SwingUtilities.invokeLater(() -> {
             int fw = frame.getWidth();
             int fh = frame.getHeight();
@@ -226,10 +205,7 @@ public class MainApp {
         frame.setVisible(true);
     }
 
-    // --- image loading & processing helpers ---
-
     private static BufferedImage loadHeroOriginal() {
-        // try classpath candidates
         ClassLoader cl = MainApp.class.getClassLoader();
         for (String cand : RESOURCE_CANDIDATES) {
             try (InputStream in = cl.getResourceAsStream(cand)) {
@@ -238,7 +214,7 @@ public class MainApp {
                 }
             } catch (Exception ignored) {}
         }
-        // try MainApp.class.getResourceAsStream variants
+
         for (String cand : RESOURCE_CANDIDATES) {
             String p = cand.startsWith("/") ? cand : "/" + cand;
             try (InputStream in = MainApp.class.getResourceAsStream(p)) {
@@ -247,7 +223,7 @@ public class MainApp {
                 }
             } catch (Exception ignored) {}
         }
-        // fallback absolute path
+
         try {
             File f = new File(FALLBACK_IMAGE_PATH);
             if (f.exists()) return ImageIO.read(f);
@@ -255,9 +231,7 @@ public class MainApp {
         return null;
     }
 
-    /**
-     * Produce a cover-fit scaled image (center-cropped) then blur it.
-     */
+
     private static BufferedImage makeBlurredCover(BufferedImage src, int targetW, int targetH, int blurRadius) {
         if (src == null || targetW <= 0 || targetH <= 0) return null;
 
@@ -278,17 +252,13 @@ public class MainApp {
         int y = (scaledH - targetH) / 2;
         BufferedImage cropped = scaled.getSubimage(x, y, targetW, targetH);
 
-        // moderate blur radius: not too heavy
+        // moderate blur radius
         BufferedImage blurred = applyGaussianBlur(cropped, blurRadius);
 
-        // apply desaturation + dark translucent overlay to get the "navbar-style" glaze
+
         return applyTintAndDesaturate(blurred, 0.20f, new Color(0, 0, 0, 110));
     }
 
-    /**
-     * Fast box-blur approximation (two-pass horizontal+vertical).
-     * This is reasonably fast for UI use — adjust radius 6..12.
-     */
     private static BufferedImage applyGaussianBlur(BufferedImage img, int radius) {
         if (radius < 1) return img;
         int w = img.getWidth();
@@ -299,7 +269,7 @@ public class MainApp {
 
         int kernelSize = radius * 2 + 1;
 
-        // horizontal pass
+
         for (int y = 0; y < h; y++) {
             int yw = y * w;
             for (int x = 0; x < w; x++) {
@@ -320,7 +290,6 @@ public class MainApp {
             }
         }
 
-        // vertical pass
         for (int x = 0; x < w; x++) {
             for (int y = 0; y < h; y++) {
                 long r = 0, g = 0, b = 0;
@@ -345,11 +314,6 @@ public class MainApp {
         return out;
     }
 
-    /**
-     * Slightly desaturate and apply a translucent dark tint overlay.
-     * - desaturateAmount: 0..1 where 0 = original, 1 = full grayscale
-     * - overlay: Color with alpha used to darken (e.g., new Color(0,0,0,110))
-     */
     private static BufferedImage applyTintAndDesaturate(BufferedImage src, float desaturateAmount, Color overlay) {
         if (src == null) return null;
         int w = src.getWidth(), h = src.getHeight();
@@ -357,7 +321,7 @@ public class MainApp {
         Graphics2D g = out.createGraphics();
         g.drawImage(src, 0, 0, null);
 
-        // simple desaturation per-pixel (cheap)
+
         if (desaturateAmount > 0f) {
             int[] pixels = out.getRGB(0, 0, w, h, null, 0, w);
             for (int i = 0; i < pixels.length; i++) {
@@ -375,7 +339,6 @@ public class MainApp {
             out.setRGB(0,0,w,h,pixels,0,w);
         }
 
-        // draw translucent overlay to dim the image (glazed look)
         if (overlay != null) {
             g.setColor(overlay);
             g.fillRect(0, 0, w, h);
@@ -407,8 +370,6 @@ public class MainApp {
             super.paintComponent(g);
         }
     }
-
-    // === PASTE THIS CLASS AT THE BOTTOM ===
     private static class PillButton extends JButton {
         public PillButton(String text) {
             super(text);
@@ -429,7 +390,6 @@ public class MainApp {
 
         @Override
         protected void paintComponent(Graphics g) {
-            // Handle disable state graying
             if (!isEnabled()) {
                 g.setColor(new Color(200, 200, 200));
             } else if (getModel().isPressed()) {
@@ -441,7 +401,6 @@ public class MainApp {
             Graphics2D g2 = (Graphics2D) g.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-            // Draw the pill shape
             g2.fillRoundRect(0, 0, getWidth(), getHeight(), 30, 30);
             g2.dispose();
 

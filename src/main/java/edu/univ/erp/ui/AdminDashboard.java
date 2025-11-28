@@ -3,7 +3,6 @@ package edu.univ.erp.ui;
 import edu.univ.erp.domain.ServiceResult;
 import edu.univ.erp.service.AdminService;
 import edu.univ.erp.service.AdminService.*;
-
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.*;
@@ -27,6 +26,8 @@ public class AdminDashboard extends JFrame {
     private static final Color ACCENT_DARK = new Color(28, 160, 157);
     private static final Color MUTED = new Color(110, 110, 110);
     private static final Color SELECTION_COLOR = new Color(225, 252, 251);
+    private static final Color SIDEBAR_BG = new Color(240, 248, 255); // Light sidebar
+
 
     private static final Font TITLE_FONT = new Font("Segoe UI", Font.BOLD, 20);
     private static final Font HEADER_FONT = new Font("Segoe UI", Font.PLAIN, 14);
@@ -70,12 +71,13 @@ public class AdminDashboard extends JFrame {
         // --- SIDEBAR ---
         JPanel sidebar = new JPanel();
         sidebar.setLayout(new BoxLayout(sidebar, BoxLayout.Y_AXIS));
-        sidebar.setBackground(Color.WHITE);
+        sidebar.setBackground(SIDEBAR_BG);
+
         sidebar.setPreferredSize(new Dimension(280, 800));
         sidebar.setBorder(BorderFactory.createMatteBorder(0, 0, 0, 1, new Color(230, 230, 230)));
 
         JPanel sideHeader = new JPanel(new FlowLayout(FlowLayout.LEFT, 25, 25));
-        sideHeader.setBackground(Color.WHITE);
+        sideHeader.setBackground(SIDEBAR_BG);
         sideHeader.setAlignmentX(Component.LEFT_ALIGNMENT);
         sideHeader.setMaximumSize(new Dimension(Integer.MAX_VALUE, 80));
 
@@ -97,7 +99,7 @@ public class AdminDashboard extends JFrame {
         JButton logoutBtn = new JButton("Logout");
         logoutBtn.setFont(HEADER_FONT);
         logoutBtn.setForeground(new Color(200, 50, 50));
-        logoutBtn.setBackground(Color.WHITE);
+        logoutBtn.setBackground(SIDEBAR_BG);
         logoutBtn.setBorder(new EmptyBorder(15, 25, 15, 0));
         logoutBtn.setFocusPainted(false);
         logoutBtn.setContentAreaFilled(false);
@@ -263,8 +265,8 @@ public class AdminDashboard extends JFrame {
             toolbar.add(btnAdmin);
             toolbar.add(btnDelete);
             toolbar.add(btnRefresh);
+            userModel = new DefaultTableModel(new Object[]{"Username", "Role", "Status", "Roll No/Dept"}, 0) {
 
-            userModel = new DefaultTableModel(new Object[]{"User ID", "Username", "Role", "Status", "Roll No/Dept"}, 0) {
                 @Override public boolean isCellEditable(int row, int column) { return false; }
             };
             userTable = new JTable(userModel);
@@ -772,7 +774,10 @@ public class AdminDashboard extends JFrame {
         for (var c : courses) courseBox.addItem(c.courseCode() + " - " + c.courseName());
 
         instructorBox.addItem("--- No Instructor (Assign Later) ---");
-        for (var i : instructors) instructorBox.addItem(i.userId() + " (" + i.department() + ")");
+        for (var i : instructors) {
+            // Show: Name (Department) instead of ID
+            instructorBox.addItem(i.name() + " (" + i.department() + ")");
+        }
 
         JPanel panel = new JPanel();
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
@@ -894,7 +899,8 @@ public class AdminDashboard extends JFrame {
         int selectedIndex = 0;
         for (int i = 0; i < instructors.size(); i++) {
             var inst = instructors.get(i);
-            instructorBox.addItem(inst.userId() + " (" + inst.department() + ")");
+            // Show: Name (Department) instead of ID
+            instructorBox.addItem(inst.name() + " (" + inst.department() + ")");
             if (inst.userId().equals(currentInstructor)) {
                 selectedIndex = i + 1;
             }
@@ -1003,7 +1009,8 @@ public class AdminDashboard extends JFrame {
 
         JComboBox<String> instructorBox = new JComboBox<>();
         for (var i : instructors) {
-            instructorBox.addItem(i.userId() + " (" + i.department() + ")");
+            // Show: Name (Department) instead of ID
+            instructorBox.addItem(i.name() + " (" + i.department() + ")");
         }
 
         JPanel panel = new JPanel();
@@ -1072,16 +1079,32 @@ public class AdminDashboard extends JFrame {
             return;
         }
 
-        String uid = (String) userModel.getValueAt(row, 0);
-        String username = (String) userModel.getValueAt(row, 1);
-        String role = (String) userModel.getValueAt(row, 2);
+        String username = (String) userModel.getValueAt(row, 0); // Now username is column 0
+        String role = (String) userModel.getValueAt(row, 1);
+
+        // Get the actual userId from the full user list
+        List<UserView> allUsers = adminService.getAllUsers();
+        String userId = null;
+        for (UserView u : allUsers) {
+            if (u.username().equals(username) && u.role().equals(role)) {
+                userId = u.userId();
+                break;
+            }
+        }
+
+        if (userId == null) {
+            JOptionPane.showMessageDialog(this,
+                    "Could not find user ID!",
+                    "Error",
+                    JOptionPane.ERROR_MESSAGE);
+            return;
+        }
 
         // ⚠️ Extra warning for deleting admins
         if ("Admin".equalsIgnoreCase(role)) {
             int preConfirm = JOptionPane.showConfirmDialog(
                     this,
                     "⚠️ WARNING: You are about to delete an ADMIN account!\n\n" +
-                            "User ID: " + uid + "\n" +
                             "Username: " + username + "\n\n" +
                             "This is a sensitive operation. Are you sure?",
                     "Confirm Admin Deletion",
@@ -1097,7 +1120,6 @@ public class AdminDashboard extends JFrame {
         int confirm = JOptionPane.showConfirmDialog(
                 this,
                 "Delete this user?\n\n" +
-                        "User ID: " + uid + "\n" +
                         "Username: " + username + "\n" +
                         "Role: " + role + "\n\n" +
                         "This action cannot be undone.",
@@ -1107,7 +1129,7 @@ public class AdminDashboard extends JFrame {
         );
 
         if (confirm == JOptionPane.YES_OPTION) {
-            ServiceResult<String> sr = adminService.deleteUser(uid, role);
+            ServiceResult<String> sr = adminService.deleteUser(userId, role);
 
             JOptionPane.showMessageDialog(this,
                     sr.getMessage(),
@@ -1375,7 +1397,7 @@ public class AdminDashboard extends JFrame {
     private void loadUsers() {
         userModel.setRowCount(0);
         List<UserView> users = adminService.getAllUsers();
-        for (UserView u : users) userModel.addRow(new Object[]{u.userId(), u.username(), u.role(), u.status(), u.specificId()});
+        for (UserView u : users) userModel.addRow(new Object[]{u.username(), u.role(), u.status(), u.specificId()});
     }
 
     private void loadCourses() {
@@ -1443,7 +1465,7 @@ public class AdminDashboard extends JFrame {
                 g2.setColor(new Color(248, 250, 250));
                 g2.fillRect(0, 0, getWidth(), getHeight());
             } else {
-                g2.setColor(Color.WHITE);
+                g2.setColor(SIDEBAR_BG);
                 g2.fillRect(0, 0, getWidth(), getHeight());
             }
             g2.dispose();

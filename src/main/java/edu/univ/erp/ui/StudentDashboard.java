@@ -1,9 +1,7 @@
 package edu.univ.erp.ui;
-
 import edu.univ.erp.service.StudentService;
 import edu.univ.erp.service.StudentService.*;
 import edu.univ.erp.domain.ServiceResult;
-
 import javax.swing.*;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
@@ -29,12 +27,6 @@ import java.util.HashMap;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Set;
-
-
-
-
-
-
 public class StudentDashboard extends JFrame {
 
     // CORRECT color scheme - matching admin dashboard
@@ -680,7 +672,7 @@ public class StudentDashboard extends JFrame {
         // Days of the week
         String[] days = {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday"};
 
-        // Time slots - 30 minute intervals
+        // Time slots - 30 minute intervals from 8:00 to 18:00
         String[] timeSlots = {"08:00", "08:30", "09:00", "09:30", "10:00", "10:30",
                 "11:00", "11:30", "12:00", "12:30", "13:00", "13:30",
                 "14:00", "14:30", "15:00", "15:30", "16:00", "16:30",
@@ -716,23 +708,19 @@ public class StudentDashboard extends JFrame {
         }
 
         // Load timetable data
-// Load timetable data
         List<TimetableView> timetable = studentService.getStudentTimetable(userId);
 
-// Create a map: day -> timeSlot -> list of courses at that START time only
-        Map<String, Map<String, List<TimetableView>>> scheduleMap = new HashMap<>();
+        // Create a map: day -> list of courses for that day
+        Map<String, List<TimetableView>> scheduleMap = new HashMap<>();
         for (TimetableView entry : timetable) {
-            scheduleMap.putIfAbsent(entry.day(), new HashMap<>());
-            String timeKey = entry.time().substring(0, 5); // "09:30:00" -> "09:30"
-
-            scheduleMap.get(entry.day()).putIfAbsent(timeKey, new ArrayList<>());
-            scheduleMap.get(entry.day()).get(timeKey).add(entry);
+            scheduleMap.putIfAbsent(entry.day(), new ArrayList<>());
+            scheduleMap.get(entry.day()).add(entry);
         }
 
-// Track which cells are occupied by spanning cells
+        // Track which cells are occupied by spanning cells
         Set<String> occupiedCells = new HashSet<>();
 
-// Add time slots and course cells
+        // Add time slots and course cells
         for (int row = 0; row < timeSlots.length; row++) {
             gbc.gridy = row + 1;
             gbc.gridx = 0;
@@ -752,7 +740,7 @@ public class StudentDashboard extends JFrame {
                 gbc.gridheight = 1;
 
                 String day = days[col];
-                String currentTime = timeSlots[row];
+                String currentTimeSlot = timeSlots[row];
                 String cellKey = day + "-" + row;
 
                 // Skip if this cell is already occupied by a spanning cell
@@ -760,38 +748,45 @@ public class StudentDashboard extends JFrame {
                     continue;
                 }
 
-                // Check if there are classes STARTING at this time
-                List<TimetableView> classesAtThisTime = null;
-                if (scheduleMap.containsKey(day) && scheduleMap.get(day).containsKey(currentTime)) {
-                    classesAtThisTime = scheduleMap.get(day).get(currentTime);
+                // Find classes that START at this exact time slot
+                List<TimetableView> classesAtThisTime = new ArrayList<>();
+                if (scheduleMap.containsKey(day)) {
+                    for (TimetableView entry : scheduleMap.get(day)) {
+                        String classStartTime = entry.time().substring(0, 5); // Get HH:MM
+                        if (classStartTime.equals(currentTimeSlot)) {
+                            classesAtThisTime.add(entry);
+                        }
+                    }
                 }
 
                 JPanel cellPanel = new JPanel();
                 cellPanel.setBorder(BorderFactory.createMatteBorder(1, 1, 1, 1, BORDER_GRAY));
                 cellPanel.setBackground(Color.WHITE);
 
-                if (classesAtThisTime != null && !classesAtThisTime.isEmpty()) {
-                    // Get the first class to determine duration
+                if (!classesAtThisTime.isEmpty()) {
+                    // Get the first class to determine duration (assuming all classes at same time have same duration)
                     TimetableView firstClass = classesAtThisTime.get(0);
 
-                    // Parse start time from current slot
-                    String[] startParts = currentTime.split(":");
+                    // Parse start and end times
+                    String startTimeStr = firstClass.time().substring(0, 5);
+                    String endTimeStr = firstClass.endTime().substring(0, 5);
+
+                    String[] startParts = startTimeStr.split(":");
+                    String[] endParts = endTimeStr.split(":");
+
                     int startHour = Integer.parseInt(startParts[0]);
                     int startMin = Integer.parseInt(startParts[1]);
-                    int startTotalMinutes = startHour * 60 + startMin;
-
-                    // Parse end time from the database
-                    String endTimeStr = firstClass.endTime().substring(0, 5); // Get HH:MM from HH:MM:SS or HH:MM
-                    String[] endParts = endTimeStr.split(":");
                     int endHour = Integer.parseInt(endParts[0]);
                     int endMin = Integer.parseInt(endParts[1]);
-                    int endTotalMinutes = endHour * 60 + endMin;
 
-                    // Calculate duration in minutes
-                    int durationMinutes = endTotalMinutes - startTotalMinutes;
+                    int startTotalMin = startHour * 60 + startMin;
+                    int endTotalMin = endHour * 60 + endMin;
+                    int durationMin = endTotalMin - startTotalMin;
 
                     // Calculate how many 30-minute slots needed
-                    int slotsNeeded = (int) Math.ceil(durationMinutes / 30.0);
+                    // For 90 minutes (9:00-10:30): we need 4 slots (9:00, 9:30, 10:00, 10:30)
+                    // Formula: duration / 30 + 1 (to include both start and end slots)
+                    int slotsNeeded = (durationMin / 30) + 1;
 
                     // Set gridheight to span multiple rows
                     gbc.gridheight = slotsNeeded;
@@ -809,20 +804,23 @@ public class StudentDashboard extends JFrame {
                             BorderFactory.createMatteBorder(0, 3, 0, 0, TEAL_COLOR)
                     ));
 
-                    // If multiple classes at same time, divide the cell
+                    // Layout classes in the cell
                     if (classesAtThisTime.size() == 1) {
                         // Single class - use entire cell
                         cellPanel.setLayout(new BorderLayout(3, 3));
                         TimetableView entry = classesAtThisTime.get(0);
 
-                        JLabel courseLabel = new JLabel("<html><b>" + entry.course() + "</b><br/>" +
+                        String displayText = "<html><div style='text-align:center;'><b>" +
+                                entry.course() + "</b><br/>" +
                                 entry.sectionId() + "<br/>" +
-                                entry.room() + "</html>");
+                                entry.room() + "</div></html>";
+
+                        JLabel courseLabel = new JLabel(displayText, SwingConstants.CENTER);
                         courseLabel.setFont(new Font("Segoe UI", Font.PLAIN, 10));
                         courseLabel.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
                         cellPanel.add(courseLabel, BorderLayout.CENTER);
                     } else {
-                        // Multiple classes - divide cell horizontally
+                        // Multiple classes - divide cell vertically
                         cellPanel.setLayout(new GridLayout(classesAtThisTime.size(), 1, 0, 2));
 
                         for (TimetableView entry : classesAtThisTime) {
@@ -830,9 +828,12 @@ public class StudentDashboard extends JFrame {
                             subPanel.setBackground(LIGHT_TEAL_BG);
                             subPanel.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, TEAL_COLOR));
 
-                            JLabel courseLabel = new JLabel("<html><b>" + entry.course() + "</b><br/>" +
+                            String displayText = "<html><div style='text-align:center;'><b>" +
+                                    entry.course() + "</b><br/>" +
                                     entry.sectionId() + "<br/>" +
-                                    entry.room() + "</html>");
+                                    entry.room() + "</div></html>";
+
+                            JLabel courseLabel = new JLabel(displayText, SwingConstants.CENTER);
                             courseLabel.setFont(new Font("Segoe UI", Font.PLAIN, 9));
                             courseLabel.setBorder(BorderFactory.createEmptyBorder(3, 5, 3, 5));
                             subPanel.add(courseLabel, BorderLayout.CENTER);
@@ -847,9 +848,11 @@ public class StudentDashboard extends JFrame {
                     cellPanel.setLayout(new BorderLayout());
                     cellPanel.setPreferredSize(new Dimension(150, 40));
                 }
+
                 gridPanel.add(cellPanel, gbc);
             }
         }
+
         JScrollPane scrollPane = new JScrollPane(gridPanel);
         scrollPane.setBorder(BorderFactory.createLineBorder(BORDER_GRAY, 1));
         scrollPane.getVerticalScrollBar().setUnitIncrement(16);
@@ -857,7 +860,8 @@ public class StudentDashboard extends JFrame {
         calendarPanel.add(scrollPane, BorderLayout.CENTER);
 
         return calendarPanel;
-    }    private void refreshTimetable() {
+    }
+       private void refreshTimetable() {
         // Get the timetable tab panel (index 2)
         Component timetableTab = mainTabbedPane.getComponentAt(2);
         if (timetableTab instanceof JPanel) {

@@ -3,7 +3,6 @@ package edu.univ.erp.ui;
 import edu.univ.erp.domain.ServiceResult;
 import edu.univ.erp.service.AdminService;
 import edu.univ.erp.service.AdminService.*;
-
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.*;
@@ -20,13 +19,14 @@ public class AdminDashboard extends JFrame {
     private final String username;
     private final AdminService adminService;
 
-    //Color Scheme
     private static final Color BG = new Color(245, 247, 250);
     private static final Color ACCENT = new Color(0, 180, 180);
     private static final Color ACCENT_HOVER = new Color(0, 150, 150);
     private static final Color ACCENT_DARK = new Color(28, 160, 157);
     private static final Color MUTED = new Color(110, 110, 110);
     private static final Color SELECTION_COLOR = new Color(225, 252, 251);
+    private static final Color SIDEBAR_BG = new Color(240, 248, 255); // Light sidebar
+
 
     private static final Font TITLE_FONT = new Font("Segoe UI", Font.BOLD, 20);
     private static final Font HEADER_FONT = new Font("Segoe UI", Font.PLAIN, 14);
@@ -67,15 +67,16 @@ public class AdminDashboard extends JFrame {
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
 
-        //SIDEBAR
+        // --- SIDEBAR ---
         JPanel sidebar = new JPanel();
         sidebar.setLayout(new BoxLayout(sidebar, BoxLayout.Y_AXIS));
-        sidebar.setBackground(Color.WHITE);
+        sidebar.setBackground(SIDEBAR_BG);
+
         sidebar.setPreferredSize(new Dimension(280, 800));
         sidebar.setBorder(BorderFactory.createMatteBorder(0, 0, 0, 1, new Color(230, 230, 230)));
 
         JPanel sideHeader = new JPanel(new FlowLayout(FlowLayout.LEFT, 25, 25));
-        sideHeader.setBackground(Color.WHITE);
+        sideHeader.setBackground(SIDEBAR_BG);
         sideHeader.setAlignmentX(Component.LEFT_ALIGNMENT);
         sideHeader.setMaximumSize(new Dimension(Integer.MAX_VALUE, 80));
 
@@ -97,7 +98,7 @@ public class AdminDashboard extends JFrame {
         JButton logoutBtn = new JButton("Logout");
         logoutBtn.setFont(HEADER_FONT);
         logoutBtn.setForeground(new Color(200, 50, 50));
-        logoutBtn.setBackground(Color.WHITE);
+        logoutBtn.setBackground(SIDEBAR_BG);
         logoutBtn.setBorder(new EmptyBorder(15, 25, 15, 0));
         logoutBtn.setFocusPainted(false);
         logoutBtn.setContentAreaFilled(false);
@@ -112,7 +113,7 @@ public class AdminDashboard extends JFrame {
 
         add(sidebar, BorderLayout.WEST);
 
-        //MAIN CONTENT
+        // --- MAIN CONTENT ---
         JPanel contentWrapper = new JPanel(new BorderLayout());
         contentWrapper.setBackground(BG);
 
@@ -165,7 +166,6 @@ public class AdminDashboard extends JFrame {
         for (NavButton btn : navButtons) btn.setActive(btn == selected);
     }
 
-    //DIALOG BOX
     private void showCustomDialog(String title, JPanel content, Consumer<Boolean> onConfirm) {
         JDialog dialog = new JDialog(this, title, true);
         dialog.setLayout(new BorderLayout());
@@ -262,8 +262,8 @@ public class AdminDashboard extends JFrame {
             toolbar.add(btnAdmin);
             toolbar.add(btnDelete);
             toolbar.add(btnRefresh);
+            userModel = new DefaultTableModel(new Object[]{"Username", "Role", "Status", "Roll No/Dept"}, 0) {
 
-            userModel = new DefaultTableModel(new Object[]{"User ID", "Username", "Role", "Status", "Roll No/Dept"}, 0) {
                 @Override public boolean isCellEditable(int row, int column) { return false; }
             };
             userTable = new JTable(userModel);
@@ -316,8 +316,6 @@ public class AdminDashboard extends JFrame {
             JButton btnAdd = new PillButton("Add Section");
             JButton btnEdit = new PillButton("Edit Selected");
             JButton btnAssign = new PillButton("Assign Instructor");
-
-
             btnAssign.setPreferredSize(new Dimension(180, 36));  // Wider + Taller
 
             JButton btnDelete = new PillButton("Delete Selected");
@@ -349,7 +347,7 @@ public class AdminDashboard extends JFrame {
         });
     }
 
-    // SETTINGS PANEL
+    // ==================== FIXED SETTINGS PANEL WITH VISIBLE MAINTENANCE BUTTON ====================
     private JPanel createSettingsPanel() {
         return createCard(panel -> {
             JPanel content = new JPanel(new GridBagLayout());
@@ -411,11 +409,12 @@ public class AdminDashboard extends JFrame {
         });
     }
 
-
+    // ==================== UPDATED STYLETOGGLE WITH BETTER COLORS ====================
     private void styleToggle(JToggleButton btn, boolean isOn) {
         btn.setSelected(isOn);
         btn.setText(isOn ? "ON" : "OFF");
 
+        // ✅ FIX: Use distinct, visible colors
         if (isOn) {
             btn.setBackground(new Color(220, 60, 60));  // Red for ON (maintenance active)
             btn.setForeground(Color.WHITE);
@@ -428,7 +427,7 @@ public class AdminDashboard extends JFrame {
         btn.setOpaque(true);
         btn.setBorderPainted(false);
     }
-    // DIALOG
+    // -------------------- DIALOG IMPLEMENTATIONS --------------------
 
     private void showAddAdminDialog() {
         JTextField usernameField = new JTextField(15);
@@ -443,6 +442,7 @@ public class AdminDashboard extends JFrame {
             String username = usernameField.getText().trim();
             String password = new String(passwordField.getPassword());
 
+            // ✔ VALIDATIONS
             if (username.isEmpty() || password.isEmpty()) {
                 JOptionPane.showMessageDialog(this,
                         "All fields are required!",
@@ -476,6 +476,7 @@ public class AdminDashboard extends JFrame {
         JPasswordField passwordField = new JPasswordField(15);
         JTextField rollNoField = new JTextField(15);
 
+        // 🔹 Program selection dropdown (prevents invalid input)
         String[] programs = {
                 "Computer Science",
                 "Electrical Engineering",
@@ -485,7 +486,7 @@ public class AdminDashboard extends JFrame {
         };
         JComboBox<String> programCombo = new JComboBox<>(programs);
 
-        //Restrict year 1–4 only
+        // 🔹 Restrict year 1–4 only
         JSpinner yearSpinner = new JSpinner(new SpinnerNumberModel(1, 1, 4, 1));
 
         JPanel panel = new JPanel();
@@ -503,6 +504,7 @@ public class AdminDashboard extends JFrame {
             String program = (String) programCombo.getSelectedItem();
             int year = (int) yearSpinner.getValue();
 
+            // 🔹 VALIDATIONS
             if (username.isEmpty() || password.isEmpty() || rollNo.isEmpty()) {
                 JOptionPane.showMessageDialog(this,
                         "All fields are required!",
@@ -535,6 +537,7 @@ public class AdminDashboard extends JFrame {
                 return;
             }
 
+            // 🔹 Proceed with service call only if validation passes
             ServiceResult<String> result = adminService.addStudent(
                     username, password, rollNo, program, year);
 
@@ -552,6 +555,7 @@ public class AdminDashboard extends JFrame {
         JTextField usernameField = new JTextField(15);
         JPasswordField passwordField = new JPasswordField(15);
 
+        // Dropdown department selection (prevents typos)
         String[] departments = {
                 "Computer Science",
                 "Biology",
@@ -563,7 +567,7 @@ public class AdminDashboard extends JFrame {
         JComboBox<String> deptDropdown = new JComboBox<>(departments);
 
         JTextField desigField = new JTextField(15);
-        JTextField roomField = new JTextField(10);
+        JTextField roomField = new JTextField(10); // Office must be ≤ 10 characters
 
         JPanel panel = new JPanel();
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
@@ -580,6 +584,7 @@ public class AdminDashboard extends JFrame {
             String designation = desigField.getText().trim();
             String office = roomField.getText().trim();
 
+            // ✔ VALIDATIONS
             if (username.isEmpty() || password.isEmpty() || designation.isEmpty() || office.isEmpty()) {
                 JOptionPane.showMessageDialog(this,
                         "All fields are required!",
@@ -622,7 +627,7 @@ public class AdminDashboard extends JFrame {
             }
         });
     }
-    //ADD COURSE
+    // ==================== UPDATED ADD COURSE (Description can be empty) ====================
     private void showAddCourseDialog() {
         JTextField codeField = new JTextField();
         JTextField nameField = new JTextField();
@@ -644,6 +649,7 @@ public class AdminDashboard extends JFrame {
             int credits = (int) creditSpinner.getValue();
             String description = descArea.getText().trim(); // ✅ Can be empty
 
+            // ✔ VALIDATIONS (Description removed)
             if (code.isEmpty() || name.isEmpty()) {
                 JOptionPane.showMessageDialog(this,
                         "Course Code and Name are required!",
@@ -651,6 +657,8 @@ public class AdminDashboard extends JFrame {
                         JOptionPane.ERROR_MESSAGE);
                 return;
             }
+
+            // ✅ REMOVED: Description validation - now optional
 
             if (credits < 1 || credits > 6) {
                 JOptionPane.showMessageDialog(this,
@@ -673,7 +681,7 @@ public class AdminDashboard extends JFrame {
         });
     }
 
-    //EDIT COURSE
+    // ==================== UPDATED EDIT COURSE (Description can be empty) ====================
     private void showEditCourseDialog() {
         int row = courseTable.getSelectedRow();
         if (row == -1) {
@@ -717,6 +725,8 @@ public class AdminDashboard extends JFrame {
                 return;
             }
 
+            // ✅ REMOVED: Description validation - now optional
+
             if (credits < 1 || credits > 6) {
                 JOptionPane.showMessageDialog(this,
                         "Credits must be between 1 and 6!",
@@ -736,7 +746,7 @@ public class AdminDashboard extends JFrame {
                 loadCourses();
             }
         });
-    }    //ADD SECTION
+    }    // ==================== UPDATED ADD SECTION (Description & Room can be empty) ====================
     private void showAddSectionDialog() {
         var courses = adminService.getAllCourses();
         var instructors = adminService.getAllInstructors();
@@ -759,7 +769,10 @@ public class AdminDashboard extends JFrame {
         for (var c : courses) courseBox.addItem(c.courseCode() + " - " + c.courseName());
 
         instructorBox.addItem("--- No Instructor (Assign Later) ---");
-        for (var i : instructors) instructorBox.addItem(i.userId() + " (" + i.department() + ")");
+        for (var i : instructors) {
+            // Show: Name (Department) instead of ID
+            instructorBox.addItem(i.name() + " (" + i.department() + ")");
+        }
 
         JPanel panel = new JPanel();
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
@@ -785,6 +798,8 @@ public class AdminDashboard extends JFrame {
                 return;
             }
 
+            // ✅ REMOVED: Room validation - now optional
+            // Room can be empty, so we just trim it
             String room = roomField.getText().trim();
 
             String startTime = startField.getText().trim();
@@ -835,7 +850,7 @@ public class AdminDashboard extends JFrame {
         });
     }
 
-    // EDIT SECTION
+    // ==================== UPDATED EDIT SECTION (Room can be empty) ====================
     private void showEditSectionDialog() {
         int row = sectionTable.getSelectedRow();
         if (row == -1) {
@@ -879,7 +894,8 @@ public class AdminDashboard extends JFrame {
         int selectedIndex = 0;
         for (int i = 0; i < instructors.size(); i++) {
             var inst = instructors.get(i);
-            instructorBox.addItem(inst.userId() + " (" + inst.department() + ")");
+            // Show: Name (Department) instead of ID
+            instructorBox.addItem(inst.name() + " (" + inst.department() + ")");
             if (inst.userId().equals(currentInstructor)) {
                 selectedIndex = i + 1;
             }
@@ -905,6 +921,7 @@ public class AdminDashboard extends JFrame {
             String newRoom = roomField.getText().trim(); // ✅ Can be empty
             int newCapacity = (int) capSpinner.getValue();
 
+            // ✅ REMOVED: Room validation - now optional
 
             if (!newStartTime.matches("\\d{2}:\\d{2}") || !newEndTime.matches("\\d{2}:\\d{2}")) {
                 JOptionPane.showMessageDialog(this,
@@ -987,7 +1004,8 @@ public class AdminDashboard extends JFrame {
 
         JComboBox<String> instructorBox = new JComboBox<>();
         for (var i : instructors) {
-            instructorBox.addItem(i.userId() + " (" + i.department() + ")");
+            // Show: Name (Department) instead of ID
+            instructorBox.addItem(i.name() + " (" + i.department() + ")");
         }
 
         JPanel panel = new JPanel();
@@ -1009,6 +1027,7 @@ public class AdminDashboard extends JFrame {
         showCustomDialog("Assign Instructor to Section", panel, (ok) -> {
             int idx = instructorBox.getSelectedIndex();
 
+            // ✅ VALIDATION: Instructor must be selected
             if (idx == -1) {
                 JOptionPane.showMessageDialog(this,
                         "Please select an instructor!",
@@ -1019,6 +1038,7 @@ public class AdminDashboard extends JFrame {
 
             String newId = instructors.get(idx).userId();
 
+            // ✅ Check if assigning same instructor
             if (newId.equals(currentInstructor)) {
                 int proceed = JOptionPane.showConfirmDialog(this,
                         "This instructor is already assigned to this section.\n" +
@@ -1043,7 +1063,7 @@ public class AdminDashboard extends JFrame {
             }
         });
     }
-    //DELETE USER
+    // ==================== DELETE USER WITH BETTER CONFIRMATION ====================
     private void deleteSelectedUser() {
         int row = userTable.getSelectedRow();
         if (row == -1) {
@@ -1054,15 +1074,32 @@ public class AdminDashboard extends JFrame {
             return;
         }
 
-        String uid = (String) userModel.getValueAt(row, 0);
-        String username = (String) userModel.getValueAt(row, 1);
-        String role = (String) userModel.getValueAt(row, 2);
+        String username = (String) userModel.getValueAt(row, 0); // Now username is column 0
+        String role = (String) userModel.getValueAt(row, 1);
 
+        // Get the actual userId from the full user list
+        List<UserView> allUsers = adminService.getAllUsers();
+        String userId = null;
+        for (UserView u : allUsers) {
+            if (u.username().equals(username) && u.role().equals(role)) {
+                userId = u.userId();
+                break;
+            }
+        }
+
+        if (userId == null) {
+            JOptionPane.showMessageDialog(this,
+                    "Could not find user ID!",
+                    "Error",
+                    JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        // ⚠️ Extra warning for deleting admins
         if ("Admin".equalsIgnoreCase(role)) {
             int preConfirm = JOptionPane.showConfirmDialog(
                     this,
                     "⚠️ WARNING: You are about to delete an ADMIN account!\n\n" +
-                            "User ID: " + uid + "\n" +
                             "Username: " + username + "\n\n" +
                             "This is a sensitive operation. Are you sure?",
                     "Confirm Admin Deletion",
@@ -1074,10 +1111,10 @@ public class AdminDashboard extends JFrame {
             }
         }
 
+        // Final confirmation
         int confirm = JOptionPane.showConfirmDialog(
                 this,
                 "Delete this user?\n\n" +
-                        "User ID: " + uid + "\n" +
                         "Username: " + username + "\n" +
                         "Role: " + role + "\n\n" +
                         "This action cannot be undone.",
@@ -1087,7 +1124,7 @@ public class AdminDashboard extends JFrame {
         );
 
         if (confirm == JOptionPane.YES_OPTION) {
-            ServiceResult<String> sr = adminService.deleteUser(uid, role);
+            ServiceResult<String> sr = adminService.deleteUser(userId, role);
 
             JOptionPane.showMessageDialog(this,
                     sr.getMessage(),
@@ -1355,7 +1392,7 @@ public class AdminDashboard extends JFrame {
     private void loadUsers() {
         userModel.setRowCount(0);
         List<UserView> users = adminService.getAllUsers();
-        for (UserView u : users) userModel.addRow(new Object[]{u.userId(), u.username(), u.role(), u.status(), u.specificId()});
+        for (UserView u : users) userModel.addRow(new Object[]{u.username(), u.role(), u.status(), u.specificId()});
     }
 
     private void loadCourses() {
@@ -1423,7 +1460,7 @@ public class AdminDashboard extends JFrame {
                 g2.setColor(new Color(248, 250, 250));
                 g2.fillRect(0, 0, getWidth(), getHeight());
             } else {
-                g2.setColor(Color.WHITE);
+                g2.setColor(SIDEBAR_BG);
                 g2.fillRect(0, 0, getWidth(), getHeight());
             }
             g2.dispose();

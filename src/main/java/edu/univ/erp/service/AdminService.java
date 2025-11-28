@@ -35,6 +35,7 @@ public class AdminService {
 
     public record InstructorView(
             String userId,
+            String name,
             String department,
             String designation,
             String officeRoom
@@ -488,11 +489,15 @@ public class AdminService {
     public List<SectionView> getAllSections() {
         List<SectionView> sections = new ArrayList<>();
 
+        // ✅ UPDATED: Now joins to get instructor name from users_auth
         String sql = "SELECT s.section_id, s.course_id, c.course_code, c.course_name, " +
-                "s.instructor_id, s.semester, s.year, s.day, s.start_time, s.end_time, " +
+                "s.instructor_id, u.username as instructor_name, " +
+                "s.semester, s.year, s.day, s.start_time, s.end_time, " +
                 "s.room, s.capacity, COUNT(e.enrollment_id) as enrolled " +
                 "FROM sections s " +
                 "JOIN courses c ON s.course_id = c.course_id " +
+                "LEFT JOIN instructors i ON s.instructor_id = i.user_id " +
+                "LEFT JOIN auth_db.users_auth u ON i.user_id = u.user_id " +
                 "LEFT JOIN enrollments e ON s.section_id = e.section_id AND e.status = 'ENROLLED' " +
                 "GROUP BY s.section_id " +
                 "ORDER BY s.year DESC, s.semester, c.course_code";
@@ -502,12 +507,17 @@ public class AdminService {
              ResultSet rs = ps.executeQuery()) {
 
             while (rs.next()) {
+                String instructorDisplay = rs.getString("instructor_name");
+                if (instructorDisplay == null || instructorDisplay.isEmpty()) {
+                    instructorDisplay = "Not Assigned";
+                }
+
                 sections.add(new SectionView(
                         rs.getString("section_id"),
                         rs.getInt("course_id"),
                         rs.getString("course_code"),
                         rs.getString("course_name"),
-                        rs.getString("instructor_id"),
+                        instructorDisplay,  // ✅ NOW SHOWS NAME, not ID
                         rs.getString("semester"),
                         rs.getInt("year"),
                         rs.getString("day"),
@@ -525,7 +535,6 @@ public class AdminService {
 
         return sections;
     }
-
     /**
      * Assign instructor to section
      */
@@ -627,7 +636,11 @@ public class AdminService {
     public List<InstructorView> getAllInstructors() {
         List<InstructorView> instructors = new ArrayList<>();
 
-        String sql = "SELECT user_id, department, designation, office_room FROM instructors ORDER BY user_id";
+        // ✅ UPDATED: Now joins with users_auth to get username as name
+        String sql = "SELECT i.user_id, u.username as name, i.department, i.designation, i.office_room " +
+                "FROM instructors i " +
+                "JOIN auth_db.users_auth u ON i.user_id = u.user_id " +
+                "ORDER BY u.username";
 
         try (Connection conn = DBConfig.getErpConnection();
              PreparedStatement ps = conn.prepareStatement(sql);
@@ -636,6 +649,7 @@ public class AdminService {
             while (rs.next()) {
                 instructors.add(new InstructorView(
                         rs.getString("user_id"),
+                        rs.getString("name"),           // ✅ ADDED
                         rs.getString("department"),
                         rs.getString("designation"),
                         rs.getString("office_room")

@@ -24,15 +24,23 @@ public class InstructorDashboard extends JFrame {
     private final String instructorUserId;
     private final String username;
 
-    // --- Colors & Fonts ---
-    private static final Color BG = new Color(245, 247, 250); // Light Gray Background for Modern Look
-    private static final Color ACCENT = new Color(0, 180, 180);
-    private static final Color ACCENT_HOVER = new Color(0, 150, 150);
-    private static final Color ACCENT_DARK = new Color(28, 160, 157);
-    private static final Color MUTED = new Color(110, 110, 110);
-    private static final Color SELECTION_COLOR = new Color(225, 252, 251);
-    private static final Font TITLE_FONT = new Font("Segoe UI", Font.BOLD, 20);
+    // --- Updated Colors & Fonts to match Student Portal ---
+    private static final Color BG = new Color(240, 244, 248);              // Light blue-gray background
+    private static final Color ACCENT = new Color(20, 184, 166);           // Teal (matching student portal)
+    private static final Color ACCENT_HOVER = new Color(13, 148, 136);     // Darker teal on hover
+    private static final Color ACCENT_DARK = new Color(15, 118, 110);
+    private static final Color MUTED = new Color(100, 116, 139);           // Slate gray for secondary text
+    private static final Color SELECTION_COLOR = new Color(204, 251, 241); // Light teal selection
+    private static final Color CARD_BG = Color.WHITE;
+    private static final Color BORDER_COLOR = new Color(226, 232, 240);    // Light gray border
+    private static final Color TEXT_PRIMARY = new Color(30, 41, 59);       // Dark slate
+    private static final Color TEXT_SECONDARY = new Color(100, 116, 139);  // Medium slate
+
+    private static final Font TITLE_FONT = new Font("Segoe UI", Font.BOLD, 24);
     private static final Font HEADER_FONT = new Font("Segoe UI", Font.PLAIN, 14);
+    private static final Font CARD_TITLE_FONT = new Font("Segoe UI", Font.BOLD, 18);
+    private static final Font STATS_FONT = new Font("Segoe UI", Font.PLAIN, 15);
+    private static final Font STATS_VALUE_FONT = new Font("Segoe UI", Font.BOLD, 20);
 
     // --- Layout & Container ---
     private CardLayout cardLayout;
@@ -54,6 +62,13 @@ public class InstructorDashboard extends JFrame {
 
     private String currentStatsText = "No data available.";
 
+    // Stats data fields for visual display
+    private int totalStudents = 0;
+    private double avgScore = 0.0;
+    private double maxScore = 0.0;
+    private double minScore = 0.0;
+    private double passRate = 0.0;
+
     private final JLabel lblGradebookTitle = new JLabel("Gradebook");
 
     private final JLabel lblMaintenance = new JLabel();
@@ -61,24 +76,20 @@ public class InstructorDashboard extends JFrame {
     private javax.swing.Timer maintenancePollTimer;
 
     // --- Buttons ---
-    private final JButton btnRefreshSections = new PillButton("Refresh Sections");
-    private final JButton btnLoadRoster = new PillButton("Load Roster");
-
-    // Gradebook buttons
-    private final JButton btnBack = new PillButton("← Back");
-    private final JButton btnViewStats = new PillButton("View Stats");
-    private final JButton btnComputeFinal = new PillButton("Compute Final");
-    private final JButton btnSave = new PillButton("Save Grades");
-    private final JButton btnExport = new PillButton("Export CSV");
+    private final JButton btnRefreshSections = new ModernButton("Refresh Sections", true);
+    private final JButton btnLoadRoster = new ModernButton("Load Roster", true);
+    private final JButton btnBack = new ModernButton("Back", false);
+    private final JButton btnViewStats = new ModernButton("View Statistics", true);
+    private final JButton btnComputeFinal = new ModernButton("Compute Final Grades", true);
+    private final JButton btnSave = new ModernButton("Save Grades", true);
+    private final JButton btnExport = new ModernButton("Export CSV", true);
 
     private static final double W_QUIZ = 0.20;
     private static final double W_MID = 0.30;
     private static final double W_END = 0.50;
 
-    private final InstructorService service = new InstructorService();
-
-    public InstructorDashboard(String instructorUserId, String username) {
-        super("Instructor Dashboard - " + username);
+    private final InstructorService service = new InstructorService();public InstructorDashboard(String instructorUserId, String username) {
+        super("Instructor Dashboard");
         this.instructorUserId = instructorUserId;
         this.username = username;
 
@@ -105,61 +116,24 @@ public class InstructorDashboard extends JFrame {
     }
 
     private void initUI() {
-        // frame basics
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-        setSize(1150, 720);
+        setSize(1200, 750);
         setLocationRelativeTo(null);
 
-        // root panel
-        JPanel root = new JPanel(new BorderLayout(12,12));
+        // Root panel with updated background
+        JPanel root = new JPanel(new BorderLayout(0, 0));
         root.setBackground(BG);
-        root.setBorder(new EmptyBorder(12,12,12,12));
         setContentPane(root);
 
-        // --- HEADER ---
-        JPanel header = new JPanel(new BorderLayout());
-        header.setBackground(Color.WHITE);
-        header.setBorder(new EmptyBorder(8,12,12,12));
-
-        // Left Header: Welcome Message
-        JPanel titleBlock = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 6));
-        titleBlock.setOpaque(false);
-        lblWelcome.setFont(TITLE_FONT);
-        lblWelcome.setForeground(Color.BLACK);
-        lblWelcome.setText("Welcome, " + username);
-        titleBlock.add(lblWelcome);
-        header.add(titleBlock, BorderLayout.WEST);
-
-        // Right Header: Maintenance + Department
-        JPanel rightBlock = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 6));
-        rightBlock.setOpaque(false);
-
-        // Maintenance Label
-        lblMaintenance.setFont(HEADER_FONT.deriveFont(Font.BOLD, 12f));
-        lblMaintenance.setForeground(new Color(180,20,20));
-        lblMaintenance.setVisible(false);
-        rightBlock.add(lblMaintenance);
-
-        // Spacer
-        rightBlock.add(Box.createHorizontalStrut(15));
-
-        // Department Label
-        lblDepartment.setFont(HEADER_FONT.deriveFont(Font.BOLD));
-        lblDepartment.setForeground(MUTED);
-        rightBlock.add(lblDepartment);
-
-        header.add(rightBlock, BorderLayout.EAST);
-
-        JSeparator sep = new JSeparator();
-        sep.setForeground(new Color(230,230,230));
-
+        // --- MODERN HEADER ---
+        JPanel header = createModernHeader();
         root.add(header, BorderLayout.NORTH);
-        root.add(sep, BorderLayout.CENTER);
 
         // --- CARD LAYOUT SETUP ---
         cardLayout = new CardLayout();
         mainCardPanel = new JPanel(cardLayout);
         mainCardPanel.setOpaque(false);
+        mainCardPanel.setBorder(new EmptyBorder(20, 30, 30, 30));
 
         // 1. Create Sections View
         JPanel pnlSectionsView = createSectionsView();
@@ -172,13 +146,12 @@ public class InstructorDashboard extends JFrame {
         root.add(mainCardPanel, BorderLayout.CENTER);
 
         // --- Actions ---
-
         btnRefreshSections.addActionListener((ActionEvent e) -> loadSections());
 
         btnLoadRoster.addActionListener((ActionEvent e) -> {
             int viewRow = tblSections.getSelectedRow();
             if (viewRow < 0) {
-                JOptionPane.showMessageDialog(this, "Select a section first.", "Warning", JOptionPane.WARNING_MESSAGE);
+                showModernDialog("Please select a section first.", "No Selection", JOptionPane.WARNING_MESSAGE);
                 return;
             }
             int modelRow = tblSections.convertRowIndexToModel(viewRow);
@@ -191,7 +164,6 @@ public class InstructorDashboard extends JFrame {
             cardLayout.show(mainCardPanel, VIEW_GRADES);
         });
 
-        // Grades View Actions
         btnBack.addActionListener(e -> {
             cardLayout.show(mainCardPanel, VIEW_SECTIONS);
         });
@@ -199,9 +171,7 @@ public class InstructorDashboard extends JFrame {
         btnComputeFinal.addActionListener((ActionEvent e) -> computeFinalAndUpdateTable());
         btnSave.addActionListener((ActionEvent e) -> saveGradesToDB());
         btnExport.addActionListener((ActionEvent e) -> exportGradesCSV());
-
-        // Stats Button Action
-        btnViewStats.addActionListener(e -> showStatsWindow());
+        btnViewStats.addActionListener(e -> showEnhancedStatsDialog());
 
         // Maintenance timer
         refreshMaintenanceBanner();
@@ -213,247 +183,602 @@ public class InstructorDashboard extends JFrame {
         });
     }
 
-    // --- Helper: Show Stats Window ---
-    private void showStatsWindow() {
-        JDialog statsDialog = new JDialog(this, "Section Statistics", true);
-        statsDialog.setSize(400, 250);
-        statsDialog.setLocationRelativeTo(this);
-        statsDialog.setLayout(new BorderLayout());
-        statsDialog.getContentPane().setBackground(Color.WHITE);
+    // --- NEW: Modern Header Design ---
+    private JPanel createModernHeader() {
+        JPanel header = new JPanel(new BorderLayout());
+        header.setBackground(CARD_BG);
+        header.setBorder(new EmptyBorder(20, 30, 20, 30));
 
-        JTextArea textArea = new JTextArea(currentStatsText);
-        textArea.setEditable(false);
-        textArea.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        textArea.setBorder(new EmptyBorder(20, 20, 20, 20));
-        textArea.setLineWrap(true);
-        textArea.setWrapStyleWord(true);
+        // Left side: Welcome message
+        JPanel leftPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        leftPanel.setOpaque(false);
+        JPanel rightPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 0));
+        rightPanel.setOpaque(false);
 
-        statsDialog.add(textArea, BorderLayout.CENTER);
+        JPanel titleStack = new JPanel();
+        titleStack.setLayout(new BoxLayout(titleStack, BoxLayout.Y_AXIS));
+        titleStack.setOpaque(false);
 
-        JButton closeBtn = new PillButton("Close");
-        closeBtn.setPreferredSize(new Dimension(80, 35));
-        closeBtn.addActionListener(e -> statsDialog.dispose());
+        lblWelcome.setFont(TITLE_FONT);
+        lblWelcome.setForeground(TEXT_PRIMARY);
+        lblWelcome.setText("Welcome, " + username);
+        lblWelcome.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        JPanel btnPanel = new JPanel();
-        btnPanel.setOpaque(false);
-        btnPanel.setBorder(new EmptyBorder(10, 10, 10, 10));
-        btnPanel.add(closeBtn);
+        JLabel subtitle = new JLabel("Instructor Dashboard");
+        subtitle.setFont(HEADER_FONT);
+        subtitle.setForeground(TEXT_SECONDARY);
+        subtitle.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        statsDialog.add(btnPanel, BorderLayout.SOUTH);
-        statsDialog.setVisible(true);
-    }
+        titleStack.add(lblWelcome);
+        titleStack.add(Box.createVerticalStrut(4));
+        titleStack.add(subtitle);
 
-    // --- View Creation Methods ---
+        leftPanel.add(titleStack);
 
+        // Right side: Maintenance + Department
+
+        // Maintenance badge
+        lblMaintenance.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        lblMaintenance.setForeground(new Color(220, 38, 38));
+        lblMaintenance.setBackground(new Color(254, 226, 226));
+        lblMaintenance.setOpaque(true);
+        lblMaintenance.setBorder(new EmptyBorder(6, 12, 6, 12));
+        lblMaintenance.setVisible(false);
+        rightPanel.add(lblMaintenance);
+
+        // Department label (FIXED: Changed from color badge to normal black text)
+        lblDepartment.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        lblDepartment.setForeground(TEXT_PRIMARY); // Use normal dark text color
+        lblDepartment.setBackground(CARD_BG); // Set background to white (or default transparent)
+        lblDepartment.setOpaque(false); // Crucial: make it transparent, not filled with color
+        lblDepartment.setBorder(new EmptyBorder(0, 0, 0, 0)); // Remove padding/border
+        rightPanel.add(lblDepartment);
+
+        header.add(leftPanel, BorderLayout.WEST);
+        header.add(rightPanel, BorderLayout.EAST);
+        // Bottom border
+        JPanel borderWrapper = new JPanel(new BorderLayout());
+        borderWrapper.setBackground(CARD_BG);
+        borderWrapper.add(header, BorderLayout.CENTER);
+
+        JPanel bottomBorder = new JPanel();
+        bottomBorder.setBackground(BORDER_COLOR);
+        bottomBorder.setPreferredSize(new Dimension(0, 1));
+        borderWrapper.add(bottomBorder, BorderLayout.SOUTH);
+
+        return borderWrapper;
+    }// --- View Creation: Sections ---
     private JPanel createSectionsView() {
-        // Main Container with Padding (The gray background area)
-        JPanel mainContainer = new JPanel(new BorderLayout());
-        mainContainer.setBackground(BG);
-        mainContainer.setBorder(new EmptyBorder(10, 20, 20, 20)); // Padding
+        JPanel container = new JPanel(new BorderLayout(0, 20));
+        container.setOpaque(false);
 
-        // The "Card" (White box containing the table)
-        JPanel cardPanel = new JPanel(new BorderLayout());
-        cardPanel.setBackground(Color.WHITE);
-        cardPanel.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(230, 230, 230), 1),
-                new EmptyBorder(0, 0, 0, 0)
-        ));
+        // Main card
+        JPanel card = new JPanel(new BorderLayout());
+        card.setBackground(CARD_BG);
+        card.setBorder(BorderFactory.createLineBorder(BORDER_COLOR, 1));
 
-        // --- CARD HEADER (Title Only) ---
+        // Card header
         JPanel cardHeader = new JPanel(new BorderLayout());
-        cardHeader.setBackground(Color.WHITE);
-        cardHeader.setBorder(new EmptyBorder(15, 20, 10, 20));
+        cardHeader.setBackground(CARD_BG);
+        cardHeader.setBorder(new EmptyBorder(20, 25, 15, 25));
 
         JLabel title = new JLabel("My Sections");
-        title.setFont(new Font("Segoe UI", Font.BOLD, 18));
-        title.setForeground(new Color(50, 50, 50));
+        title.setFont(CARD_TITLE_FONT);
+        title.setForeground(TEXT_PRIMARY);
         cardHeader.add(title, BorderLayout.WEST);
 
-        // --- TABLE STYLING ---
+        // Table setup
         sectionsModel.setColumnIdentifiers(new String[]{
                 "Section ID","Course Code","Title","Semester","Year","Day","Start","End","Room","Capacity"
         });
         tblSections.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-
-        // Update table styling for the modern look but keeping original highlight
-        tblSections.setRowHeight(40);
-        tblSections.setShowVerticalLines(false);
-        tblSections.setShowHorizontalLines(true);
-        tblSections.setGridColor(new Color(240, 240, 240));
-
-        // Revert to Original Highlight Logic inside styleTable below...
-        styleTable(tblSections, true);
-
-        // Custom Header styling
-        JTableHeader header = tblSections.getTableHeader();
-        header.setPreferredSize(new Dimension(0, 40));
-        header.setBackground(new Color(248, 249, 250));
-        header.setForeground(new Color(100, 100, 100));
-        header.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        ((DefaultTableCellRenderer)header.getDefaultRenderer()).setHorizontalAlignment(JLabel.LEFT);
+        tblSections.setRowHeight(42);
+        styleModernTable(tblSections);
 
         JScrollPane scrollPane = new JScrollPane(tblSections);
-        scrollPane.getViewport().setBackground(Color.WHITE);
-        scrollPane.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(230,230,230)));
+        scrollPane.getViewport().setBackground(CARD_BG);
+        scrollPane.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, BORDER_COLOR));
 
-        // --- BUTTON PANEL (Bottom of the Card - "Where they were") ---
-        JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 15));
-        btnPanel.setBackground(Color.WHITE);
+        // Action buttons
+        JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 16));
+        btnPanel.setBackground(CARD_BG);
+        btnPanel.setBorder(new EmptyBorder(0, 10, 0, 0));
 
-        // Make buttons standard size again
-        btnRefreshSections.setPreferredSize(new Dimension(140, 40));
-        btnLoadRoster.setPreferredSize(new Dimension(140, 40));
+        btnRefreshSections.setPreferredSize(new Dimension(160, 40));
+        btnLoadRoster.setPreferredSize(new Dimension(160, 40));
 
         btnPanel.add(btnRefreshSections);
         btnPanel.add(btnLoadRoster);
 
-        // --- ASSEMBLE CARD ---
-        cardPanel.add(cardHeader, BorderLayout.NORTH);
-        cardPanel.add(scrollPane, BorderLayout.CENTER);
-        cardPanel.add(btnPanel, BorderLayout.SOUTH); // Buttons at bottom of card
+        card.add(cardHeader, BorderLayout.NORTH);
+        card.add(scrollPane, BorderLayout.CENTER);
+        card.add(btnPanel, BorderLayout.SOUTH);
 
-        // Add Card to Container
-        mainContainer.add(cardPanel, BorderLayout.CENTER);
+        container.add(card, BorderLayout.CENTER);
 
-        // --- LOGOUT (Outside card, bottom right) ---
-        JButton logoutBtn = createLogoutButton();
-        JPanel footerPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        footerPanel.setOpaque(false);
-        footerPanel.setBorder(new EmptyBorder(10, 0, 0, 0));
-        footerPanel.add(logoutBtn);
+        // Logout button (bottom-left, link style)
+        JButton logoutBtn = new JButton("Logout");
+        logoutBtn.setFont(HEADER_FONT);
+        logoutBtn.setForeground(new Color(220, 38, 38));
+        logoutBtn.setBackground(Color.WHITE);
+        logoutBtn.setBorder(new EmptyBorder(12, 0, 0, 0));
+        logoutBtn.setFocusPainted(false);
+        logoutBtn.setContentAreaFilled(false);
+        logoutBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        logoutBtn.setHorizontalAlignment(SwingConstants.LEFT);
 
-        mainContainer.add(footerPanel, BorderLayout.SOUTH);
+        Color normalRed = new Color(220, 38, 38);
+        Color hoverRed = new Color(185, 28, 28);
+        logoutBtn.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseEntered(MouseEvent e) {
+                logoutBtn.setForeground(hoverRed);
+            }
+            @Override
+            public void mouseExited(MouseEvent e) {
+                logoutBtn.setForeground(normalRed);
+            }
+        });
 
-        return mainContainer;
-    }
+        logoutBtn.addActionListener(e -> logout());
 
+        JPanel footer = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        footer.setOpaque(false);
+        footer.add(logoutBtn);
+
+        container.add(footer, BorderLayout.SOUTH);
+
+        return container;
+    }// --- View Creation: Gradebook ---
     private JPanel createGradebookView() {
-        JPanel mainContainer = new JPanel(new BorderLayout());
-        mainContainer.setBackground(BG);
-        mainContainer.setBorder(new EmptyBorder(10, 20, 20, 20));
+        JPanel container = new JPanel(new BorderLayout(0, 20));
+        container.setOpaque(false);
 
-        JPanel cardPanel = new JPanel(new BorderLayout());
-        cardPanel.setBackground(Color.WHITE);
-        cardPanel.setBorder(BorderFactory.createLineBorder(new Color(230, 230, 230), 1));
+        // Main content area - split into table card and stats panel
+        JPanel mainContent = new JPanel(new BorderLayout(20, 0));
+        mainContent.setOpaque(false);
 
-        // Header
+        // LEFT: Grades table card
+        JPanel tableCard = new JPanel(new BorderLayout());
+        tableCard.setBackground(CARD_BG);
+        tableCard.setBorder(BorderFactory.createLineBorder(BORDER_COLOR, 1));
+
+        // Card header
         JPanel cardHeader = new JPanel(new BorderLayout());
-        cardHeader.setBackground(Color.WHITE);
-        cardHeader.setBorder(new EmptyBorder(15, 20, 10, 20));
+        cardHeader.setBackground(CARD_BG);
+        cardHeader.setBorder(new EmptyBorder(20, 25, 15, 25));
 
-        lblGradebookTitle.setFont(new Font("Segoe UI", Font.BOLD, 18));
-        lblGradebookTitle.setForeground(new Color(50, 50, 50));
+        lblGradebookTitle.setFont(CARD_TITLE_FONT);
+        lblGradebookTitle.setForeground(TEXT_PRIMARY);
         cardHeader.add(lblGradebookTitle, BorderLayout.WEST);
 
         // Table
         tblGrades.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        tblGrades.setRowHeight(35);
-        styleTable(tblGrades, false);
+        tblGrades.setRowHeight(40);
+        styleModernTable(tblGrades);
         installNumericEditors();
 
         JScrollPane scrollPane = new JScrollPane(tblGrades);
-        scrollPane.getViewport().setBackground(Color.WHITE);
-        scrollPane.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(230,230,230)));
+        scrollPane.getViewport().setBackground(CARD_BG);
+        scrollPane.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, BORDER_COLOR));
 
-        // Buttons (Bottom)
-        JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 15));
-        btnPanel.setBackground(Color.WHITE);
+        // Action buttons
+        JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 16));
+        btnPanel.setBackground(CARD_BG);
+        btnPanel.setBorder(new EmptyBorder(0, 10, 0, 0));
+
+        btnBack.setPreferredSize(new Dimension(100, 40));
+        btnComputeFinal.setPreferredSize(new Dimension(180, 40));
+        btnSave.setPreferredSize(new Dimension(120, 40));
+        btnExport.setPreferredSize(new Dimension(120, 40));
 
         btnPanel.add(btnBack);
-        btnPanel.add(Box.createHorizontalStrut(10));
-        btnPanel.add(btnViewStats); // Stats button at bottom
-        btnPanel.add(Box.createHorizontalStrut(10));
+        btnPanel.add(Box.createHorizontalStrut(5));
         btnPanel.add(btnComputeFinal);
         btnPanel.add(btnSave);
         btnPanel.add(btnExport);
 
-        cardPanel.add(cardHeader, BorderLayout.NORTH);
-        cardPanel.add(scrollPane, BorderLayout.CENTER);
-        cardPanel.add(btnPanel, BorderLayout.SOUTH);
+        tableCard.add(cardHeader, BorderLayout.NORTH);
+        tableCard.add(scrollPane, BorderLayout.CENTER);
+        tableCard.add(btnPanel, BorderLayout.SOUTH);
 
-        mainContainer.add(cardPanel, BorderLayout.CENTER);
-        return mainContainer;
+        // RIGHT: Stats panel (visual cards)
+        JPanel statsPanel = createVisualStatsPanel();
+
+        mainContent.add(tableCard, BorderLayout.CENTER);
+        mainContent.add(statsPanel, BorderLayout.EAST);
+
+        container.add(mainContent, BorderLayout.CENTER);
+
+        return container;
     }
 
-    private JButton createLogoutButton() {
-        JButton logoutBtn = new JButton("Logout");
-        logoutBtn.setFont(HEADER_FONT.deriveFont(12f));
-        logoutBtn.setBorder(BorderFactory.createLineBorder(ACCENT_DARK));
-        logoutBtn.setBackground(Color.WHITE);
-        logoutBtn.setForeground(ACCENT_DARK);
-        logoutBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        logoutBtn.setFocusPainted(false);
-        logoutBtn.setPreferredSize(new Dimension(110, 40));
-        logoutBtn.addActionListener((ActionEvent e) -> {
-            if (maintenancePollTimer != null && maintenancePollTimer.isRunning()) maintenancePollTimer.stop();
-            dispose();
-            SwingUtilities.invokeLater(() -> MainApp.main(new String[0]));
+    // --- NEW: Visual Stats Panel with Cards ---
+    private JPanel createVisualStatsPanel() {
+        JPanel statsContainer = new JPanel();
+        statsContainer.setLayout(new BoxLayout(statsContainer, BoxLayout.Y_AXIS));
+        statsContainer.setOpaque(false);
+        statsContainer.setPreferredSize(new Dimension(280, 0));
+
+        // Title with view button
+        JPanel titlePanel = new JPanel(new BorderLayout());
+        titlePanel.setOpaque(false);
+        titlePanel.setMaximumSize(new Dimension(280, 50));
+
+        JLabel statsTitle = new JLabel("Class Statistics");
+        statsTitle.setFont(CARD_TITLE_FONT);
+        statsTitle.setForeground(TEXT_PRIMARY);
+
+        btnViewStats.setPreferredSize(new Dimension(140, 36));
+
+        titlePanel.add(statsTitle, BorderLayout.WEST);
+        titlePanel.add(btnViewStats, BorderLayout.EAST);
+
+        statsContainer.add(titlePanel);
+        statsContainer.add(Box.createVerticalStrut(15));
+
+        // Stat cards
+        statsContainer.add(createStatCard("Total Students", "0", new Color(59, 130, 246)));
+        statsContainer.add(Box.createVerticalStrut(12));
+
+        statsContainer.add(createStatCard("Average Score", "0.00", new Color(16, 185, 129)));
+        statsContainer.add(Box.createVerticalStrut(12));
+
+        statsContainer.add(createStatCard("Highest Score", "0.00", new Color(245, 158, 11)));
+        statsContainer.add(Box.createVerticalStrut(12));
+
+        statsContainer.add(createStatCard("Lowest Score", "0.00", new Color(239, 68, 68)));
+        statsContainer.add(Box.createVerticalStrut(12));
+
+        statsContainer.add(createStatCard("Pass Rate", "0.0%", ACCENT));
+
+        statsContainer.add(Box.createVerticalGlue());
+
+        return statsContainer;
+    }
+
+    // --- Helper: Create individual stat card ---
+    private JPanel createStatCard(String label, String value, Color accentColor) {
+        JPanel card = new JPanel(new BorderLayout());
+        card.setBackground(CARD_BG);
+        card.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(BORDER_COLOR, 1),
+                new EmptyBorder(16, 18, 16, 18)
+        ));
+        card.setMaximumSize(new Dimension(280, 90));
+        card.setPreferredSize(new Dimension(280, 90));
+
+        // Left accent bar
+        JPanel accentBar = new JPanel();
+        accentBar.setBackground(accentColor);
+        accentBar.setPreferredSize(new Dimension(4, 0));
+
+        // Content
+        JPanel content = new JPanel();
+        content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
+        content.setOpaque(false);
+        content.setBorder(new EmptyBorder(0, 12, 0, 0));
+
+        JLabel lblLabel = new JLabel(label);
+        lblLabel.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        lblLabel.setForeground(TEXT_SECONDARY);
+        lblLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        JLabel lblValue = new JLabel(value);
+        lblValue.setFont(STATS_VALUE_FONT);
+        lblValue.setForeground(TEXT_PRIMARY);
+        lblValue.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        content.add(lblLabel);
+        content.add(Box.createVerticalStrut(6));
+        content.add(lblValue);
+
+        card.add(accentBar, BorderLayout.WEST);
+        card.add(content, BorderLayout.CENTER);
+
+        return card;
+    }
+
+    // --- Update stat cards with current data ---
+    private void updateStatCards() {
+        // This will be called after computing stats
+        SwingUtilities.invokeLater(() -> {
+            Component[] components = ((JPanel) ((JPanel) mainCardPanel.getComponent(1))
+                    .getComponent(0)).getComponents();
+
+            for (Component comp : components) {
+                if (comp instanceof JPanel statsPanel && statsPanel.getLayout() instanceof BoxLayout) {
+                    updateStatsInPanel(statsPanel);
+                    break;
+                }
+            }
         });
-        return logoutBtn;
     }
 
-    // ----- styling helpers -----
+    private void updateStatsInPanel(JPanel statsPanel) {
+        int cardIndex = 0;
+        for (Component comp : statsPanel.getComponents()) {
+            if (comp instanceof JPanel card && card.getBorder() instanceof javax.swing.border.CompoundBorder) {
+                JPanel content = findContentPanel(card);
+                if (content != null) {
+                    Component[] contentComps = content.getComponents();
+                    for (Component c : contentComps) {
+                        if (c instanceof JLabel lbl && lbl.getFont().equals(STATS_VALUE_FONT)) {
+                            switch (cardIndex) {
+                                case 0 -> lbl.setText(String.valueOf(totalStudents));
+                                case 1 -> lbl.setText(String.format("%.2f", avgScore));
+                                case 2 -> lbl.setText(String.format("%.2f", maxScore));
+                                case 3 -> lbl.setText(String.format("%.2f", minScore));
+                                case 4 -> lbl.setText(String.format("%.1f%%", passRate));
+                            }
+                            break;
+                        }
+                    }
+                }
+                cardIndex++;
+            }
+        }
+    }
 
-    private void styleTable(JTable t, boolean compact) {
-        t.setRowHeight(compact ? 28 : 30);
-        t.setShowGrid(false);
-        t.setIntercellSpacing(new Dimension(8, 4));
-        t.setFillsViewportHeight(true);
+    private JPanel findContentPanel(JPanel card) {
+        for (Component c : card.getComponents()) {
+            if (c instanceof JPanel p && p.getLayout() instanceof BoxLayout) {
+                return p;
+            }
+        }
+        return null;
+    }// --- NEW: Enhanced Stats Dialog with Visual Elements ---
+    private JLabel createStatLabel(String label, String value) {
+        JLabel statLabel = new JLabel("<html><b>" + label + ":</b> " + value + "</html>");
+        statLabel.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        statLabel.setForeground(TEXT_PRIMARY);
+        statLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        statLabel.setBorder(BorderFactory.createEmptyBorder(2, 0, 2, 0)); // Small vertical padding
+        return statLabel;
+    }
+    // --- NEW: Enhanced Stats Dialog with Visual Elements ---
+    private void showEnhancedStatsDialog() {
+        JDialog statsDialog = new JDialog(this, "Detailed Statistics", true);
+        statsDialog.setSize(550, 520);
+        statsDialog.setLocationRelativeTo(this);
+        statsDialog.setLayout(new BorderLayout());
+        statsDialog.getContentPane().setBackground(BG);
 
-        // === CHANGE THESE TWO LINES ===
-        t.setSelectionBackground(SELECTION_COLOR); // Use your new light teal
-        t.setSelectionForeground(Color.BLACK);     // Text must be black to be visible
+        JPanel mainPanel = new JPanel(new BorderLayout(0, 20));
+        mainPanel.setBackground(BG);
+        mainPanel.setBorder(new EmptyBorder(25, 30, 25, 30));
 
-        t.setFont(HEADER_FONT);
-        JTableHeader hdr = t.getTableHeader();
-        hdr.setBackground(Color.WHITE);
-        hdr.setReorderingAllowed(false);
-        hdr.setDefaultRenderer(new DefaultTableCellRenderer() {
-            final JLabel lbl = new JLabel();
-            @Override public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int col) {
-                lbl.setText(value == null ? "" : value.toString());
-                lbl.setOpaque(true);
-                lbl.setBackground(Color.WHITE);
-                lbl.setForeground(MUTED);
-                lbl.setBorder(new EmptyBorder(8,8,8,8));
-                lbl.setFont(HEADER_FONT.deriveFont(Font.BOLD, 12f));
-                return lbl;
+        // Title
+        JLabel title = new JLabel("Class Performance Summary");
+        title.setFont(new Font("Segoe UI", Font.BOLD, 22));
+        title.setForeground(TEXT_PRIMARY);
+
+        // --- Standard Stats Display Setup ---
+        JPanel statsContentPanel = new JPanel();
+        statsContentPanel.setLayout(new BoxLayout(statsContentPanel, BoxLayout.Y_AXIS));
+        statsContentPanel.setBackground(CARD_BG);
+        statsContentPanel.setBorder(BorderFactory.createEmptyBorder(15, 20, 15, 20));
+
+        // Calculate fail count
+        int failCount = totalStudents - (int)Math.round(totalStudents * passRate / 100.0);
+
+        // Add individual statistics as plain labels
+        statsContentPanel.add(createStatLabel("Total Graded",
+                totalStudents > 0 ? String.valueOf(totalStudents) + " students" : "0 students"));
+        statsContentPanel.add(createStatLabel("Average Score",
+                totalStudents > 0 ? String.format("%.2f out of 100", avgScore) : "0.00 out of 100"));
+        statsContentPanel.add(createStatLabel("Highest Score",
+                totalStudents > 0 ? String.format("%.2f maximum", maxScore) : "0.00 maximum"));
+        statsContentPanel.add(createStatLabel("Lowest Score",
+                totalStudents > 0 ? String.format("%.2f minimum", minScore) : "0.00 minimum"));
+        statsContentPanel.add(createStatLabel("Pass Rate",
+                totalStudents > 0 ? String.format("%.1f%% (score ≥ 50)", passRate) : "0.0%"));
+        statsContentPanel.add(createStatLabel("Fail Count",
+                totalStudents > 0 ? String.valueOf(failCount) + " students" : "0 students"));
+
+        // --- Grade Distribution Panel ---
+        JPanel distributionPanel = new JPanel(new BorderLayout());
+        distributionPanel.setBackground(CARD_BG);
+        distributionPanel.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(BORDER_COLOR, 1),
+                new EmptyBorder(15, 20, 15, 20)
+        ));
+
+        JLabel distTitle = new JLabel("Grade Distribution Information");
+        distTitle.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        distTitle.setForeground(TEXT_PRIMARY);
+
+        JTextArea distText = new JTextArea();
+        distText.setEditable(false);
+        distText.setOpaque(false);
+        distText.setFont(STATS_FONT);
+        distText.setForeground(TEXT_SECONDARY);
+        distText.setLineWrap(true);
+        distText.setWrapStyleWord(true);
+        distText.setText(String.format(
+                "Grading Formula:\n" +
+                        "• Quiz: 20%% (Weight: %.0f points)\n" +
+                        "• Midterm: 30%% (Weight: %.0f points)\n" +
+                        "• End Semester: 50%% (Weight: %.0f points)\n\n" +
+                        "Passing Criteria: Final Score ≥ 50.0",
+                W_QUIZ * 100, W_MID * 100, W_END * 100
+        ));
+
+        JPanel distContent = new JPanel(new BorderLayout(0, 10));
+        distContent.setOpaque(false);
+        distContent.add(distTitle, BorderLayout.NORTH);
+        distContent.add(distText, BorderLayout.CENTER);
+
+        distributionPanel.add(distContent);
+
+        // Close button
+        JButton closeBtn = new ModernButton("Close", true);
+        closeBtn.setPreferredSize(new Dimension(120, 42));
+        closeBtn.addActionListener(e -> statsDialog.dispose());
+
+        JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 0));
+        btnPanel.setOpaque(false);
+        btnPanel.add(closeBtn);
+
+        mainPanel.add(title, BorderLayout.NORTH);
+
+        JPanel centerContent = new JPanel(new BorderLayout(0, 20));
+        centerContent.setOpaque(false);
+        centerContent.add(statsContentPanel, BorderLayout.NORTH);  // ADD THIS LINE
+        centerContent.add(distributionPanel, BorderLayout.SOUTH);
+
+        mainPanel.add(centerContent, BorderLayout.CENTER);
+        mainPanel.add(btnPanel, BorderLayout.SOUTH);
+
+        statsDialog.add(mainPanel);
+        statsDialog.setVisible(true);
+    }
+    // --- Helper: Detailed stat card for dialog ---
+    private JPanel createDetailedStatCard(String label, String value, String subtitle, Color color) {
+        JPanel card = new JPanel(new BorderLayout());
+        card.setBackground(CARD_BG);
+        card.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(BORDER_COLOR, 1),
+                new EmptyBorder(18, 20, 18, 20)
+        ));
+
+        // Color indicator
+        JPanel colorBar = new JPanel();
+        colorBar.setBackground(color);
+        colorBar.setPreferredSize(new Dimension(5, 0));
+
+        // Content
+        JPanel content = new JPanel();
+        content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
+        content.setOpaque(false);
+        content.setBorder(new EmptyBorder(0, 15, 0, 0));
+
+        JLabel lblLabel = new JLabel(label);
+        lblLabel.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        lblLabel.setForeground(TEXT_SECONDARY);
+        lblLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        JLabel lblValue = new JLabel(value);
+        lblValue.setFont(new Font("Segoe UI", Font.BOLD, 26));
+        lblValue.setForeground(color);
+        lblValue.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        JLabel lblSubtitle = new JLabel(subtitle);
+        lblSubtitle.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        lblSubtitle.setForeground(TEXT_SECONDARY);
+        lblSubtitle.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        content.add(lblLabel);
+        content.add(Box.createVerticalStrut(8));
+        content.add(lblValue);
+        content.add(Box.createVerticalStrut(4));
+        content.add(lblSubtitle);
+
+        card.add(colorBar, BorderLayout.WEST);
+        card.add(content, BorderLayout.CENTER);
+
+        return card;
+    }
+
+    // --- Modern dialog helper ---
+    private void showModernDialog(String message, String title, int messageType) {
+        JOptionPane.showMessageDialog(this, message, title, messageType);
+    }// --- Modern Table Styling ---
+    private void styleModernTable(JTable table) {
+        table.setShowGrid(false);
+        table.setIntercellSpacing(new Dimension(12, 0));
+        table.setFillsViewportHeight(true);
+        table.setFont(HEADER_FONT);
+
+        table.setSelectionBackground(SELECTION_COLOR);
+        table.setSelectionForeground(TEXT_PRIMARY);
+        table.setBackground(CARD_BG);
+
+        // Header styling
+        JTableHeader header = table.getTableHeader();
+        header.setBackground(CARD_BG);
+        header.setForeground(TEXT_SECONDARY);
+        header.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        header.setReorderingAllowed(false);
+        header.setPreferredSize(new Dimension(0, 45));
+
+        header.setDefaultRenderer(new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object value,
+                                                           boolean isSelected, boolean hasFocus, int row, int column) {
+                JLabel label = new JLabel(value == null ? "" : value.toString());
+                label.setFont(new Font("Segoe UI", Font.BOLD, 12));
+                label.setForeground(TEXT_SECONDARY);
+                label.setBackground(CARD_BG);
+                label.setOpaque(true);
+                label.setBorder(new EmptyBorder(12, 12, 12, 12));
+                return label;
             }
         });
 
-        DefaultTableCellRenderer cellRend = new DefaultTableCellRenderer();
-        cellRend.setBorder(new EmptyBorder(6,8,6,8));
-        cellRend.setForeground(Color.BLACK);
-        t.setDefaultRenderer(Object.class, cellRend);
+        // Cell renderer
+        DefaultTableCellRenderer cellRenderer = new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object value,
+                                                           boolean isSelected, boolean hasFocus, int row, int column) {
+                Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+
+                if (isSelected) {
+                    c.setBackground(SELECTION_COLOR);
+                    c.setForeground(TEXT_PRIMARY);
+                } else {
+                    c.setBackground(row % 2 == 0 ? CARD_BG : new Color(249, 250, 251));
+                    c.setForeground(TEXT_PRIMARY);
+                }
+
+                ((JLabel) c).setBorder(new EmptyBorder(10, 12, 10, 12));
+                return c;
+            }
+        };
+
+        table.setDefaultRenderer(Object.class, cellRenderer);
+        table.setDefaultRenderer(String.class, cellRenderer);
     }
 
     private void installNumericEditors() {
         DoubleEditor doubleEditor = new DoubleEditor();
         SwingUtilities.invokeLater(() -> {
-            TableColumnModel cm2 = tblGrades.getColumnModel();
+            TableColumnModel cm = tblGrades.getColumnModel();
             for (int modelCol = 4; modelCol <= 6; modelCol++) {
-                if (cm2.getColumnCount() > modelCol) {
-                    TableColumn col = cm2.getColumn(modelCol);
+                if (cm.getColumnCount() > modelCol) {
+                    TableColumn col = cm.getColumn(modelCol);
                     col.setCellEditor(doubleEditor);
                     col.setCellRenderer(new RightAlignDoubleRenderer());
                 }
             }
-            if (cm2.getColumnCount() > 7) {
-                TableColumn finalCol = cm2.getColumn(7);
+            if (cm.getColumnCount() > 7) {
+                TableColumn finalCol = cm.getColumn(7);
                 finalCol.setCellRenderer(new RightAlignDoubleRenderer());
             }
         });
     }
 
-    // ----- data / actions -----
+    // --- Logout Helper ---
+    private void logout() {
+        if (maintenancePollTimer != null && maintenancePollTimer.isRunning()) {
+            maintenancePollTimer.stop();
+        }
+        dispose();
+        SwingUtilities.invokeLater(() -> MainApp.main(new String[0]));
+    }// --- Data Loading Methods ---
 
     private void loadInstructorDepartment() {
         new SwingWorker<String, Void>() {
-            @Override protected String doInBackground() { return service.getDepartment(instructorUserId); }
-            @Override protected void done() {
+            @Override
+            protected String doInBackground() {
+                return service.getDepartment(instructorUserId);
+            }
+
+            @Override
+            protected void done() {
                 try {
                     String dep = get();
-                    lblDepartment.setText(dep == null ? "Department: -" : "Department: " + dep);
+                    lblDepartment.setText(dep == null ? "Department: -" : dep);
                 } catch (Exception ignored) {}
             }
         }.execute();
@@ -462,20 +787,33 @@ public class InstructorDashboard extends JFrame {
     private void loadSections() {
         sectionsModel.setRowCount(0);
         new SwingWorker<List<SectionRow>, Void>() {
-            @Override protected List<SectionRow> doInBackground() { return service.getSectionsForInstructor(instructorUserId); }
-            @Override protected void done() {
+            @Override
+            protected List<SectionRow> doInBackground() {
+                return service.getSectionsForInstructor(instructorUserId);
+            }
+
+            @Override
+            protected void done() {
                 try {
                     List<SectionRow> rows = get();
                     for (SectionRow s : rows) {
                         Vector<Object> r = new Vector<>();
-                        r.add(s.sectionId()); r.add(s.courseCode()); r.add(s.courseName());
-                        r.add(s.semester()); r.add(s.year()); r.add(s.day());
-                        r.add(s.startTime()); r.add(s.endTime()); r.add(s.room()); r.add(s.capacity());
+                        r.add(s.sectionId());
+                        r.add(s.courseCode());
+                        r.add(s.courseName());
+                        r.add(s.semester());
+                        r.add(s.year());
+                        r.add(s.day());
+                        r.add(s.startTime());
+                        r.add(s.endTime());
+                        r.add(s.room());
+                        r.add(s.capacity());
                         sectionsModel.addRow(r);
                     }
                 } catch (Exception ex) {
                     ex.printStackTrace();
-                    JOptionPane.showMessageDialog(InstructorDashboard.this, "Error loading sections: " + ex.getMessage(), "DB Error", JOptionPane.ERROR_MESSAGE);
+                    showModernDialog("Error loading sections: " + ex.getMessage(),
+                            "Database Error", JOptionPane.ERROR_MESSAGE);
                 }
             }
         }.execute();
@@ -483,9 +821,18 @@ public class InstructorDashboard extends JFrame {
 
     private void refreshMaintenanceBanner() {
         new SwingWorker<Boolean, Void>() {
-            @Override protected Boolean doInBackground() { return service.isMaintenanceMode(); }
-            @Override protected void done() {
-                try { applyMaintenanceState(get()); } catch (Exception ex) { applyMaintenanceState(false); }
+            @Override
+            protected Boolean doInBackground() {
+                return service.isMaintenanceMode();
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    applyMaintenanceState(get());
+                } catch (Exception ex) {
+                    applyMaintenanceState(false);
+                }
             }
         }.execute();
     }
@@ -493,8 +840,12 @@ public class InstructorDashboard extends JFrame {
     private void applyMaintenanceState(boolean on) {
         SwingUtilities.invokeLater(() -> {
             maintenanceOn = on;
-            if (on) { lblMaintenance.setText("MAINTENANCE MODE — system is read-only"); lblMaintenance.setVisible(true); }
-            else lblMaintenance.setVisible(false);
+            if (on) {
+                lblMaintenance.setText("  MAINTENANCE MODE  ");
+                lblMaintenance.setVisible(true);
+            } else {
+                lblMaintenance.setVisible(false);
+            }
             btnSave.setEnabled(!on);
             btnComputeFinal.setEnabled(!on);
             btnLoadRoster.setEnabled(true);
@@ -505,33 +856,64 @@ public class InstructorDashboard extends JFrame {
     private void loadRosterForSection(String sectionId) {
         boolean found = false;
         for (int r = 0; r < sectionsModel.getRowCount(); r++) {
-            if (sectionId.equals(sectionsModel.getValueAt(r, 0))) { found = true; break; }
+            if (sectionId.equals(sectionsModel.getValueAt(r, 0))) {
+                found = true;
+                break;
+            }
         }
+
         if (!found) {
-            JOptionPane.showMessageDialog(this, "You do not own this section or it is not visible.", "Permission denied", JOptionPane.ERROR_MESSAGE);
+            showModernDialog("You do not own this section or it is not visible.",
+                    "Permission Denied", JOptionPane.ERROR_MESSAGE);
             return;
         }
 
         gradeModel.setRowCount(0);
         new SwingWorker<List<RosterRow>, Void>() {
-            @Override protected List<RosterRow> doInBackground() { return service.getRosterForSection(sectionId); }
-            @Override protected void done() {
+            @Override
+            protected List<RosterRow> doInBackground() {
+                return service.getRosterForSection(sectionId);
+            }
+
+            @Override
+            protected void done() {
                 try {
                     List<RosterRow> roster = get();
-                    double sumFinal = 0; double minFinal = Double.MAX_VALUE; double maxFinal = Double.MIN_VALUE; int countFinal = 0; int pass = 0;
+                    double sumFinal = 0;
+                    double minFinal = Double.MAX_VALUE;
+                    double maxFinal = Double.MIN_VALUE;
+                    int countFinal = 0;
+                    int pass = 0;
+
                     for (RosterRow r : roster) {
                         Vector<Object> row = new Vector<>();
-                        row.add(r.enrollmentId()); row.add(r.studentId()); row.add(r.rollNo()); row.add(r.studentName() == null ? "" : r.studentName());
-                        row.add(r.quiz()); row.add(r.midterm()); row.add(r.endsem()); row.add(r.finalScore());
+                        row.add(r.enrollmentId());
+                        row.add(r.studentId());
+                        row.add(r.rollNo());
+                        row.add(r.studentName() == null ? "" : r.studentName());
+                        row.add(r.quiz());
+                        row.add(r.midterm());
+                        row.add(r.endsem());
+                        row.add(r.finalScore());
                         gradeModel.addRow(row);
 
                         if (r.finalScore() != null) {
-                            sumFinal += r.finalScore(); minFinal = Math.min(minFinal, r.finalScore()); maxFinal = Math.max(maxFinal, r.finalScore());
-                            countFinal++; if (r.finalScore() >= 50.0) pass++;
+                            sumFinal += r.finalScore();
+                            minFinal = Math.min(minFinal, r.finalScore());
+                            maxFinal = Math.max(maxFinal, r.finalScore());
+                            countFinal++;
+                            if (r.finalScore() >= 50.0) pass++;
                         }
                     }
 
+                    // Update stats data
                     if (countFinal > 0) {
+                        totalStudents = countFinal;
+                        avgScore = sumFinal / countFinal;
+                        maxScore = maxFinal;
+                        minScore = minFinal;
+                        passRate = pass * 100.0 / countFinal;
+
                         currentStatsText = String.format(
                                 "Class Performance Summary:\n\n" +
                                         "Total Graded Students: %d\n" +
@@ -539,47 +921,89 @@ public class InstructorDashboard extends JFrame {
                                         "Highest Score: %.2f\n" +
                                         "Lowest Score: %.2f\n" +
                                         "Pass Rate: %.1f%% (Score >= 50.0)",
-                                countFinal, sumFinal / countFinal, maxFinal, minFinal, pass * 100.0 / countFinal
+                                totalStudents, avgScore, maxScore, minScore, passRate
                         );
                     } else {
+                        totalStudents = 0;
+                        avgScore = 0.0;
+                        maxScore = 0.0;
+                        minScore = 0.0;
+                        passRate = 0.0;
                         currentStatsText = "No final grades computed yet.";
                     }
+
+                    updateStatCards();
+
                 } catch (Exception ex) {
                     ex.printStackTrace();
-                    JOptionPane.showMessageDialog(InstructorDashboard.this, "Error loading roster: " + ex.getMessage(), "DB Error", JOptionPane.ERROR_MESSAGE);
+                    showModernDialog("Error loading roster: " + ex.getMessage(),
+                            "Database Error", JOptionPane.ERROR_MESSAGE);
                 }
             }
         }.execute();
-    }
+    }// --- Grade Computation & Operations ---
 
     private void computeFinalAndUpdateTable() {
         if (gradeModel.getRowCount() == 0) return;
-        if (maintenanceOn) { JOptionPane.showMessageDialog(this, "System is in maintenance mode. Cannot compute grades.", "Maintenance", JOptionPane.WARNING_MESSAGE); return; }
+
+        if (maintenanceOn) {
+            showModernDialog("System is in maintenance mode. Cannot compute grades.",
+                    "Maintenance Mode", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
 
         for (int r = 0; r < gradeModel.getRowCount(); r++) {
             Double q = toDouble(gradeModel.getValueAt(r, 4));
             Double m = toDouble(gradeModel.getValueAt(r, 5));
             Double e = toDouble(gradeModel.getValueAt(r, 6));
-            double finalScore = Math.round(((q == null ? 0.0 : q) * W_QUIZ + (m == null ? 0.0 : m) * W_MID + (e == null ? 0.0 : e) * W_END) * 100.0) / 100.0;
+
+            double finalScore = Math.round(((q == null ? 0.0 : q) * W_QUIZ
+                    + (m == null ? 0.0 : m) * W_MID
+                    + (e == null ? 0.0 : e) * W_END) * 100.0) / 100.0;
+
             gradeModel.setValueAt(Double.valueOf(finalScore), r, 7);
         }
+
         SwingUtilities.invokeLater(this::recalculateStatsFromTable);
     }
 
     private static Double toDouble(Object o) {
         if (o == null) return null;
         if (o instanceof Number) return ((Number) o).doubleValue();
-        try { String s = o.toString().trim(); if (s.isEmpty()) return null; return Double.parseDouble(s); } catch (Exception ex) { return null; }
+        try {
+            String s = o.toString().trim();
+            if (s.isEmpty()) return null;
+            return Double.parseDouble(s);
+        } catch (Exception ex) {
+            return null;
+        }
     }
 
     private void recalculateStatsFromTable() {
-        double sum = 0; double min = Double.MAX_VALUE; double max = Double.MIN_VALUE; int count = 0; int pass = 0;
+        double sum = 0;
+        double min = Double.MAX_VALUE;
+        double max = Double.MIN_VALUE;
+        int count = 0;
+        int pass = 0;
+
         for (int r = 0; r < gradeModel.getRowCount(); r++) {
             Double f = toDouble(gradeModel.getValueAt(r, 7));
-            if (f != null) { sum += f; min = Math.min(min, f); max = Math.max(max, f); count++; if (f >= 50.0) pass++; }
+            if (f != null) {
+                sum += f;
+                min = Math.min(min, f);
+                max = Math.max(max, f);
+                count++;
+                if (f >= 50.0) pass++;
+            }
         }
 
         if (count > 0) {
+            totalStudents = count;
+            avgScore = sum / count;
+            maxScore = max;
+            minScore = min;
+            passRate = pass * 100.0 / count;
+
             currentStatsText = String.format(
                     "Class Performance Summary:\n\n" +
                             "Total Graded Students: %d\n" +
@@ -587,58 +1011,83 @@ public class InstructorDashboard extends JFrame {
                             "Highest Score: %.2f\n" +
                             "Lowest Score: %.2f\n" +
                             "Pass Rate: %.1f%% (Score >= 50.0)",
-                    count, sum / count, max, min, pass * 100.0 / count
+                    totalStudents, avgScore, maxScore, minScore, passRate
             );
         } else {
+            totalStudents = 0;
+            avgScore = 0.0;
+            maxScore = 0.0;
+            minScore = 0.0;
+            passRate = 0.0;
             currentStatsText = "No final grades computed yet.";
         }
+
+        updateStatCards();
     }
 
     private void saveGradesToDB() {
         if (gradeModel.getRowCount() == 0) return;
-        if (maintenanceOn) { JOptionPane.showMessageDialog(this, "System is in maintenance mode. Cannot save grades.", "Maintenance", JOptionPane.WARNING_MESSAGE); return; }
+
+        if (maintenanceOn) {
+            showModernDialog("System is in maintenance mode. Cannot save grades.",
+                    "Maintenance Mode", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
 
         List<GradeRow> toSave = new ArrayList<>();
         for (int r = 0; r < gradeModel.getRowCount(); r++) {
             String enrollmentId = (String) gradeModel.getValueAt(r, 0);
-            Double quiz = toDouble(gradeModel.getValueAt(r,4));
-            Double mid = toDouble(gradeModel.getValueAt(r,5));
-            Double end = toDouble(gradeModel.getValueAt(r,6));
-            Double finalScore = toDouble(gradeModel.getValueAt(r,7));
+            Double quiz = toDouble(gradeModel.getValueAt(r, 4));
+            Double mid = toDouble(gradeModel.getValueAt(r, 5));
+            Double end = toDouble(gradeModel.getValueAt(r, 6));
+            Double finalScore = toDouble(gradeModel.getValueAt(r, 7));
 
-            if (quiz != null) toSave.add(new GradeRow(enrollmentId, "QUIZ", quiz, (int)Math.round(W_QUIZ*100)));
-            if (mid != null) toSave.add(new GradeRow(enrollmentId, "MIDTERM", mid, (int)Math.round(W_MID*100)));
-            if (end != null) toSave.add(new GradeRow(enrollmentId, "ENDSEM", end, (int)Math.round(W_END*100)));
-            if (finalScore != null) toSave.add(new GradeRow(enrollmentId, "FINAL", finalScore, 100));
+            if (quiz != null)
+                toSave.add(new GradeRow(enrollmentId, "QUIZ", quiz, (int)Math.round(W_QUIZ*100)));
+            if (mid != null)
+                toSave.add(new GradeRow(enrollmentId, "MIDTERM", mid, (int)Math.round(W_MID*100)));
+            if (end != null)
+                toSave.add(new GradeRow(enrollmentId, "ENDSEM", end, (int)Math.round(W_END*100)));
+            if (finalScore != null)
+                toSave.add(new GradeRow(enrollmentId, "FINAL", finalScore, 100));
         }
 
         new SwingWorker<Void, Void>() {
-            @Override protected Void doInBackground() throws Exception {
+            @Override
+            protected Void doInBackground() throws Exception {
                 service.saveGradesBatch(toSave);
                 return null;
             }
-            @Override protected void done() {
+
+            @Override
+            protected void done() {
                 try {
                     get();
-                    JOptionPane.showMessageDialog(InstructorDashboard.this, "Grades saved.");
+                    showModernDialog("Grades have been saved successfully.",
+                            "Success", JOptionPane.INFORMATION_MESSAGE);
                     recalculateStatsFromTable();
                 } catch (Exception ex) {
                     ex.printStackTrace();
-                    JOptionPane.showMessageDialog(InstructorDashboard.this, "Error saving grades: " + ex.getMessage(), "DB Error", JOptionPane.ERROR_MESSAGE);
+                    showModernDialog("Error saving grades: " + ex.getMessage(),
+                            "Database Error", JOptionPane.ERROR_MESSAGE);
                 }
             }
         }.execute();
-    }
+    }// --- CSV Export ---
 
     private void exportGradesCSV() {
-        if (gradeModel.getRowCount() == 0) { JOptionPane.showMessageDialog(this, "No grades to export."); return; }
+        if (gradeModel.getRowCount() == 0) {
+            showModernDialog("No grades to export.", "No Data", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
 
         String defaultSection = "unknown";
         if (lblGradebookTitle.getText().contains("(")) {
             defaultSection = "grades";
         }
 
-        String ts = java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss").format(java.time.LocalDateTime.now());
+        String ts = java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")
+                .format(java.time.LocalDateTime.now());
         String defaultName = String.format("%s_%s.csv", defaultSection, ts);
 
         JFileChooser chooser = new JFileChooser();
@@ -648,6 +1097,7 @@ public class InstructorDashboard extends JFrame {
 
         int userChoice = chooser.showSaveDialog(this);
         if (userChoice != JFileChooser.APPROVE_OPTION) return;
+
         String path = chooser.getSelectedFile().getAbsolutePath();
         if (!path.toLowerCase().endsWith(".csv")) path += ".csv";
 
@@ -666,6 +1116,7 @@ public class InstructorDashboard extends JFrame {
                 if (c < gradeModel.getColumnCount() - 1) pw.print(",");
             }
             pw.println();
+
             for (int r = 0; r < gradeModel.getRowCount(); r++) {
                 for (int c = 0; c < gradeModel.getColumnCount(); c++) {
                     Object vobj = gradeModel.getValueAt(r, c);
@@ -676,15 +1127,19 @@ public class InstructorDashboard extends JFrame {
                 pw.println();
             }
             pw.flush();
-            JOptionPane.showMessageDialog(this, "CSV exported to: " + path);
+            showModernDialog("CSV exported successfully to:\n" + path,
+                    "Export Complete", JOptionPane.INFORMATION_MESSAGE);
         } catch (Exception ex) {
             ex.printStackTrace();
-            JOptionPane.showMessageDialog(this, "Error exporting CSV: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            showModernDialog("Error exporting CSV: " + ex.getMessage(),
+                    "Export Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 
-    @Override public void dispose() {
-        if (maintenancePollTimer != null && maintenancePollTimer.isRunning()) maintenancePollTimer.stop();
+    @Override
+    public void dispose() {
+        if (maintenancePollTimer != null && maintenancePollTimer.isRunning())
+            maintenancePollTimer.stop();
         super.dispose();
     }
 
@@ -695,23 +1150,52 @@ public class InstructorDashboard extends JFrame {
         });
     }
 
-    // --- Custom Component Classes ---
+    // ============================================================================
+    // CUSTOM COMPONENT CLASSES
+    // ============================================================================
 
-    private static class PillButton extends JButton {
-        public PillButton(String text) {
+    // --- Modern Button Component ---
+    private static class ModernButton extends JButton {
+        private final boolean isPrimary;
+
+        public ModernButton(String text, boolean isPrimary) {
             super(text);
+            this.isPrimary = isPrimary;
+
             setContentAreaFilled(false);
             setFocusPainted(false);
             setBorderPainted(false);
-            setFont(new Font("Segoe UI", Font.BOLD, 12));
-            setForeground(Color.WHITE);
-            setBackground(ACCENT);
+            setFont(new Font("Segoe UI", Font.BOLD, 13));
             setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-            setPreferredSize(new Dimension(140, 40));
+
+            if (isPrimary) {
+                setForeground(Color.WHITE);
+                setBackground(ACCENT);
+            } else {
+                setForeground(ACCENT_DARK);
+                setBackground(new Color(204, 251, 241));
+            }
 
             addMouseListener(new MouseAdapter() {
-                @Override public void mouseEntered(MouseEvent e) { setBackground(ACCENT_HOVER); }
-                @Override public void mouseExited(MouseEvent e) { setBackground(ACCENT); }
+                @Override
+                public void mouseEntered(MouseEvent e) {
+                    if (isEnabled()) {
+                        if (isPrimary) {
+                            setBackground(ACCENT_HOVER);
+                        } else {
+                            setBackground(new Color(153, 246, 228));
+                        }
+                    }
+                }
+
+                @Override
+                public void mouseExited(MouseEvent e) {
+                    if (isPrimary) {
+                        setBackground(ACCENT);
+                    } else {
+                        setBackground(new Color(204, 251, 241));
+                    }
+                }
             });
         }
 
@@ -719,29 +1203,91 @@ public class InstructorDashboard extends JFrame {
         protected void paintComponent(Graphics g) {
             Graphics2D g2 = (Graphics2D) g.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            if (getModel().isPressed()) { g2.setColor(getBackground().darker()); }
-            else { g2.setColor(getBackground()); }
-            g2.fillRoundRect(0, 0, getWidth(), getHeight(), 30, 30);
+
+            if (!isEnabled()) {
+                g2.setColor(new Color(203, 213, 225));
+            } else if (getModel().isPressed()) {
+                g2.setColor(getBackground().darker());
+            } else {
+                g2.setColor(getBackground());
+            }
+
+            g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
             g2.dispose();
+
             super.paintComponent(g);
         }
-    }
 
-    static class DoubleEditor extends DefaultCellEditor {
-        private final JTextField fld;
-        DoubleEditor() { super(new JTextField()); fld = (JTextField) getComponent(); fld.addActionListener(e -> stopCellEditing()); }
-        @Override public Object getCellEditorValue() {
-            String t = fld.getText(); if (t == null) return null; t = t.trim(); if (t.isEmpty()) return null;
-            try { return Double.parseDouble(t); } catch (NumberFormatException ex) { return null; }
+        @Override
+        public void setEnabled(boolean enabled) {
+            super.setEnabled(enabled);
+            if (enabled) {
+                if (isPrimary) {
+                    setForeground(Color.WHITE);
+                } else {
+                    setForeground(ACCENT_DARK);
+                }
+            } else {
+                setForeground(new Color(148, 163, 184));
+            }
         }
     }
 
+    // --- Double Editor for Table Cells ---
+    static class DoubleEditor extends DefaultCellEditor {
+        private final JTextField fld;
+
+        DoubleEditor() {
+            super(new JTextField());
+            fld = (JTextField) getComponent();
+            fld.addActionListener(e -> stopCellEditing());
+        }
+
+        @Override
+        public Object getCellEditorValue() {
+            String t = fld.getText();
+            if (t == null) return null;
+            t = t.trim();
+            if (t.isEmpty()) return null;
+            try {
+                return Double.parseDouble(t);
+            } catch (NumberFormatException ex) {
+                return null;
+            }
+        }
+    }
+
+    // --- Right-aligned Double Renderer ---
     static class RightAlignDoubleRenderer extends DefaultTableCellRenderer {
-        RightAlignDoubleRenderer() { setHorizontalAlignment(SwingConstants.RIGHT); setBorder(new EmptyBorder(6,8,6,8)); }
-        @Override public void setValue(Object value) {
-            if (value == null) setText("");
-            else if (value instanceof Number) setText(String.format("%.2f", ((Number) value).doubleValue()));
-            else setText(value.toString());
+        RightAlignDoubleRenderer() {
+            setHorizontalAlignment(SwingConstants.RIGHT);
+            setBorder(new EmptyBorder(10, 12, 10, 12));
+        }
+
+        @Override
+        public void setValue(Object value) {
+            if (value == null)
+                setText("");
+            else if (value instanceof Number)
+                setText(String.format("%.2f", ((Number) value).doubleValue()));
+            else
+                setText(value.toString());
+        }
+
+        @Override
+        public Component getTableCellRendererComponent(JTable table, Object value,
+                                                       boolean isSelected, boolean hasFocus, int row, int column) {
+            Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+
+            if (isSelected) {
+                c.setBackground(SELECTION_COLOR);
+                c.setForeground(TEXT_PRIMARY);
+            } else {
+                c.setBackground(row % 2 == 0 ? CARD_BG : new Color(249, 250, 251));
+                c.setForeground(TEXT_PRIMARY);
+            }
+
+            return c;
         }
     }
 }

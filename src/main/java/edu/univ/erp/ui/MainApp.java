@@ -1,5 +1,4 @@
 package edu.univ.erp.ui;
-
 import edu.univ.erp.data.DBConfig;
 import edu.univ.erp.auth.HashUtil;
 
@@ -22,14 +21,11 @@ public class MainApp {
     private static final String FALLBACK_IMAGE_PATH = "src/main/resources/iiit.png";
     private static final Color ACCENT = new Color(0, 180, 180);
     private static final Color ACCENT_HOVER = new Color(0, 150, 150);
-
     private static BufferedImage heroOriginal = null;
 
     public static void main(String[] args) {
         try { UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName()); } catch (Exception ignored) {}
-
         heroOriginal = loadHeroOriginal();
-
         SwingUtilities.invokeLater(MainApp::createAndShowGUI);
     }
 
@@ -43,12 +39,10 @@ public class MainApp {
         JLayeredPane layered = new JLayeredPane();
         frame.setContentPane(layered);
 
-        // background label
         JLabel bgLabel = new JLabel();
         bgLabel.setBounds(0, 0, frame.getWidth(), frame.getHeight());
         layered.add(bgLabel, Integer.valueOf(0));
 
-        //a transparent look
         JPanel overlay = new JPanel();
         overlay.setOpaque(false);
         overlay.setBounds(0, 0, frame.getWidth(), frame.getHeight());
@@ -67,17 +61,16 @@ public class MainApp {
         c.gridx = 0; c.gridy = 0;
 
         JLabel title = new JLabel("ERP LOGIN");
-        title.setFont(new Font("SansSerif", Font.BOLD, 26));
+        title.setFont(new Font("Segoe UI", Font.BOLD, 25));
         title.setForeground(new Color(6, 150, 140));
         glass.add(title, c);
 
         c.gridy = 1; c.insets = new Insets(8, 0, 16, 0);
         JLabel subtitle = new JLabel("Sign in");
-        subtitle.setFont(new Font("SansSerif", Font.PLAIN, 13));
+        subtitle.setFont(new Font("Segoe UI", Font.BOLD, 20));
         subtitle.setForeground(new Color(110, 115, 120));
         glass.add(subtitle, c);
 
-        // Username label
         c.gridy = 2; c.insets = new Insets(12, 0, 6, 0);
         glass.add(new JLabel("Username"), c);
 
@@ -87,7 +80,6 @@ public class MainApp {
         userText.setBorder(new LineBorder(new Color(220,220,220), 1, true));
         glass.add(userText, c);
 
-        // Password
         c.gridy = 4; c.insets = new Insets(10, 0, 6, 0);
         glass.add(new JLabel("Password"), c);
 
@@ -97,7 +89,6 @@ public class MainApp {
         passwordText.setBorder(new LineBorder(new Color(220,220,220), 1, true));
         glass.add(passwordText, c);
 
-        // login button
         c.gridy = 6; c.insets = new Insets(10, 0, 6, 0);
         PillButton loginButton = new PillButton("Login"); // Changed class name
         loginButton.setPreferredSize(new Dimension(260, 44));
@@ -205,6 +196,7 @@ public class MainApp {
         frame.setVisible(true);
     }
 
+
     private static BufferedImage loadHeroOriginal() {
         ClassLoader cl = MainApp.class.getClassLoader();
         for (String cand : RESOURCE_CANDIDATES) {
@@ -214,7 +206,6 @@ public class MainApp {
                 }
             } catch (Exception ignored) {}
         }
-
         for (String cand : RESOURCE_CANDIDATES) {
             String p = cand.startsWith("/") ? cand : "/" + cand;
             try (InputStream in = MainApp.class.getResourceAsStream(p)) {
@@ -223,14 +214,12 @@ public class MainApp {
                 }
             } catch (Exception ignored) {}
         }
-
         try {
             File f = new File(FALLBACK_IMAGE_PATH);
             if (f.exists()) return ImageIO.read(f);
         } catch (Exception ignored) {}
         return null;
     }
-
 
     private static BufferedImage makeBlurredCover(BufferedImage src, int targetW, int targetH, int blurRadius) {
         if (src == null || targetW <= 0 || targetH <= 0) return null;
@@ -252,12 +241,13 @@ public class MainApp {
         int y = (scaledH - targetH) / 2;
         BufferedImage cropped = scaled.getSubimage(x, y, targetW, targetH);
 
-        // moderate blur radius
+        // moderate blur radius: not too heavy
         BufferedImage blurred = applyGaussianBlur(cropped, blurRadius);
 
-
+        // apply desaturation + dark translucent overlay to get the "navbar-style" glaze
         return applyTintAndDesaturate(blurred, 0.20f, new Color(0, 0, 0, 110));
     }
+
 
     private static BufferedImage applyGaussianBlur(BufferedImage img, int radius) {
         if (radius < 1) return img;
@@ -269,7 +259,7 @@ public class MainApp {
 
         int kernelSize = radius * 2 + 1;
 
-
+        // horizontal pass
         for (int y = 0; y < h; y++) {
             int yw = y * w;
             for (int x = 0; x < w; x++) {
@@ -290,6 +280,7 @@ public class MainApp {
             }
         }
 
+        // vertical pass
         for (int x = 0; x < w; x++) {
             for (int y = 0; y < h; y++) {
                 long r = 0, g = 0, b = 0;
@@ -314,6 +305,7 @@ public class MainApp {
         return out;
     }
 
+
     private static BufferedImage applyTintAndDesaturate(BufferedImage src, float desaturateAmount, Color overlay) {
         if (src == null) return null;
         int w = src.getWidth(), h = src.getHeight();
@@ -321,7 +313,7 @@ public class MainApp {
         Graphics2D g = out.createGraphics();
         g.drawImage(src, 0, 0, null);
 
-
+        // simple desaturation per-pixel (cheap)
         if (desaturateAmount > 0f) {
             int[] pixels = out.getRGB(0, 0, w, h, null, 0, w);
             for (int i = 0; i < pixels.length; i++) {
@@ -347,7 +339,6 @@ public class MainApp {
         return out;
     }
 
-    // --- UI helper classes ---
 
     static class RoundedPanel extends JPanel {
         private final int radius;
@@ -370,13 +361,14 @@ public class MainApp {
             super.paintComponent(g);
         }
     }
+
     private static class PillButton extends JButton {
         public PillButton(String text) {
             super(text);
             setContentAreaFilled(false);
             setFocusPainted(false);
             setBorderPainted(false);
-            setFont(new Font("Segoe UI", Font.BOLD, 14)); // 14 looks better for main login
+            setFont(new Font("Segoe UI", Font.BOLD, 16)); // 14 looks better for main login
             setForeground(Color.WHITE);
             setBackground(ACCENT);
             setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
@@ -390,6 +382,7 @@ public class MainApp {
 
         @Override
         protected void paintComponent(Graphics g) {
+            // Handle disable state graying
             if (!isEnabled()) {
                 g.setColor(new Color(200, 200, 200));
             } else if (getModel().isPressed()) {
@@ -401,6 +394,7 @@ public class MainApp {
             Graphics2D g2 = (Graphics2D) g.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
+            // Draw the pill shape
             g2.fillRoundRect(0, 0, getWidth(), getHeight(), 30, 30);
             g2.dispose();
 

@@ -19,7 +19,6 @@ public class AdminDashboard extends JFrame {
     private final String username;
     private final AdminService adminService;
 
-    // --- Modern Theme Colors ---
     private static final Color BG = new Color(245, 247, 250);
     private static final Color ACCENT = new Color(0, 180, 180);
     private static final Color ACCENT_HOVER = new Color(0, 150, 150);
@@ -167,7 +166,6 @@ public class AdminDashboard extends JFrame {
         for (NavButton btn : navButtons) btn.setActive(btn == selected);
     }
 
-    // ==================== HELPER: CUSTOM DIALOG ====================
     private void showCustomDialog(String title, JPanel content, Consumer<Boolean> onConfirm) {
         JDialog dialog = new JDialog(this, title, true);
         dialog.setLayout(new BorderLayout());
@@ -239,7 +237,6 @@ public class AdminDashboard extends JFrame {
         }
     }
 
-    // ==================== PANELS & LOGIC ====================
 
     private JPanel createUserPanel() {
         return createCard(panel -> {
@@ -319,8 +316,6 @@ public class AdminDashboard extends JFrame {
             JButton btnAdd = new PillButton("Add Section");
             JButton btnEdit = new PillButton("Edit Selected");
             JButton btnAssign = new PillButton("Assign Instructor");
-
-// Increase button size only for this one
             btnAssign.setPreferredSize(new Dimension(180, 36));  // Wider + Taller
 
             JButton btnDelete = new PillButton("Delete Selected");

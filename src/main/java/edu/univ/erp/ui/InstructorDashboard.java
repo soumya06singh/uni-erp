@@ -24,17 +24,16 @@ public class InstructorDashboard extends JFrame {
     private final String instructorUserId;
     private final String username;
 
-    // --- Updated Colors & Fonts to match Student Portal ---
     private static final Color BG = new Color(240, 244, 248);              // Light blue-gray background
-    private static final Color ACCENT = new Color(20, 184, 166);           // Teal (matching student portal)
+    private static final Color ACCENT = new Color(20, 184, 166);           // Teal
     private static final Color ACCENT_HOVER = new Color(13, 148, 136);     // Darker teal on hover
     private static final Color ACCENT_DARK = new Color(15, 118, 110);
     private static final Color MUTED = new Color(100, 116, 139);           // Slate gray for secondary text
     private static final Color SELECTION_COLOR = new Color(204, 251, 241); // Light teal selection
     private static final Color CARD_BG = Color.WHITE;
     private static final Color BORDER_COLOR = new Color(226, 232, 240);    // Light gray border
-    private static final Color TEXT_PRIMARY = new Color(30, 41, 59);       // Dark slate
-    private static final Color TEXT_SECONDARY = new Color(100, 116, 139);  // Medium slate
+    private static final Color TEXT_PRIMARY = new Color(30, 41, 59);
+    private static final Color TEXT_SECONDARY = new Color(100, 116, 139);
 
     private static final Font TITLE_FONT = new Font("Segoe UI", Font.BOLD, 24);
     private static final Font HEADER_FONT = new Font("Segoe UI", Font.PLAIN, 14);
@@ -42,7 +41,7 @@ public class InstructorDashboard extends JFrame {
     private static final Font STATS_FONT = new Font("Segoe UI", Font.PLAIN, 15);
     private static final Font STATS_VALUE_FONT = new Font("Segoe UI", Font.BOLD, 20);
 
-    // --- Layout & Container ---
+
     private CardLayout cardLayout;
     private JPanel mainCardPanel;
     private static final String VIEW_SECTIONS = "SECTIONS";
@@ -62,7 +61,7 @@ public class InstructorDashboard extends JFrame {
 
     private String currentStatsText = "No data available.";
 
-    // Stats data fields for visual display
+
     private int totalStudents = 0;
     private double avgScore = 0.0;
     private double maxScore = 0.0;
@@ -75,7 +74,6 @@ public class InstructorDashboard extends JFrame {
     private volatile boolean maintenanceOn = false;
     private javax.swing.Timer maintenancePollTimer;
 
-    // --- Buttons ---
     private final JButton btnRefreshSections = new ModernButton("Refresh Sections", true);
     private final JButton btnLoadRoster = new ModernButton("Load Roster", true);
     private final JButton btnBack = new ModernButton("Back", false);
@@ -120,26 +118,22 @@ public class InstructorDashboard extends JFrame {
         setSize(1200, 750);
         setLocationRelativeTo(null);
 
-        // Root panel with updated background
+
         JPanel root = new JPanel(new BorderLayout(0, 0));
         root.setBackground(BG);
         setContentPane(root);
 
-        // --- MODERN HEADER ---
         JPanel header = createModernHeader();
         root.add(header, BorderLayout.NORTH);
 
-        // --- CARD LAYOUT SETUP ---
         cardLayout = new CardLayout();
         mainCardPanel = new JPanel(cardLayout);
         mainCardPanel.setOpaque(false);
         mainCardPanel.setBorder(new EmptyBorder(20, 30, 30, 30));
 
-        // 1. Create Sections View
         JPanel pnlSectionsView = createSectionsView();
         mainCardPanel.add(pnlSectionsView, VIEW_SECTIONS);
 
-        // 2. Create Gradebook View
         JPanel pnlGradebookView = createGradebookView();
         mainCardPanel.add(pnlGradebookView, VIEW_GRADES);
 
@@ -183,13 +177,12 @@ public class InstructorDashboard extends JFrame {
         });
     }
 
-    // --- NEW: Modern Header Design ---
     private JPanel createModernHeader() {
         JPanel header = new JPanel(new BorderLayout());
         header.setBackground(CARD_BG);
         header.setBorder(new EmptyBorder(20, 30, 20, 30));
 
-        // Left side: Welcome message
+
         JPanel leftPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
         leftPanel.setOpaque(false);
         JPanel rightPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 0));
@@ -215,9 +208,6 @@ public class InstructorDashboard extends JFrame {
 
         leftPanel.add(titleStack);
 
-        // Right side: Maintenance + Department
-
-        // Maintenance badge
         lblMaintenance.setFont(new Font("Segoe UI", Font.BOLD, 11));
         lblMaintenance.setForeground(new Color(220, 38, 38));
         lblMaintenance.setBackground(new Color(254, 226, 226));
@@ -226,17 +216,16 @@ public class InstructorDashboard extends JFrame {
         lblMaintenance.setVisible(false);
         rightPanel.add(lblMaintenance);
 
-        // Department label (FIXED: Changed from color badge to normal black text)
         lblDepartment.setFont(new Font("Segoe UI", Font.BOLD, 13));
-        lblDepartment.setForeground(TEXT_PRIMARY); // Use normal dark text color
-        lblDepartment.setBackground(CARD_BG); // Set background to white (or default transparent)
-        lblDepartment.setOpaque(false); // Crucial: make it transparent, not filled with color
-        lblDepartment.setBorder(new EmptyBorder(0, 0, 0, 0)); // Remove padding/border
+        lblDepartment.setForeground(TEXT_PRIMARY);
+        lblDepartment.setBackground(CARD_BG);
+        lblDepartment.setOpaque(false);
+        lblDepartment.setBorder(new EmptyBorder(0, 0, 0, 0));
         rightPanel.add(lblDepartment);
 
         header.add(leftPanel, BorderLayout.WEST);
         header.add(rightPanel, BorderLayout.EAST);
-        // Bottom border
+
         JPanel borderWrapper = new JPanel(new BorderLayout());
         borderWrapper.setBackground(CARD_BG);
         borderWrapper.add(header, BorderLayout.CENTER);
@@ -247,17 +236,17 @@ public class InstructorDashboard extends JFrame {
         borderWrapper.add(bottomBorder, BorderLayout.SOUTH);
 
         return borderWrapper;
-    }// --- View Creation: Sections ---
+    }
     private JPanel createSectionsView() {
         JPanel container = new JPanel(new BorderLayout(0, 20));
         container.setOpaque(false);
 
-        // Main card
+
         JPanel card = new JPanel(new BorderLayout());
         card.setBackground(CARD_BG);
         card.setBorder(BorderFactory.createLineBorder(BORDER_COLOR, 1));
 
-        // Card header
+
         JPanel cardHeader = new JPanel(new BorderLayout());
         cardHeader.setBackground(CARD_BG);
         cardHeader.setBorder(new EmptyBorder(20, 25, 15, 25));
@@ -267,7 +256,6 @@ public class InstructorDashboard extends JFrame {
         title.setForeground(TEXT_PRIMARY);
         cardHeader.add(title, BorderLayout.WEST);
 
-        // Table setup
         sectionsModel.setColumnIdentifiers(new String[]{
                 "Section ID","Course Code","Title","Semester","Year","Day","Start","End","Room","Capacity"
         });
@@ -279,7 +267,6 @@ public class InstructorDashboard extends JFrame {
         scrollPane.getViewport().setBackground(CARD_BG);
         scrollPane.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, BORDER_COLOR));
 
-        // Action buttons
         JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 16));
         btnPanel.setBackground(CARD_BG);
         btnPanel.setBorder(new EmptyBorder(0, 10, 0, 0));
@@ -296,7 +283,7 @@ public class InstructorDashboard extends JFrame {
 
         container.add(card, BorderLayout.CENTER);
 
-        // Logout button (bottom-left, link style)
+        // Logout button
         JButton logoutBtn = new JButton("Logout");
         logoutBtn.setFont(HEADER_FONT);
         logoutBtn.setForeground(new Color(220, 38, 38));
@@ -329,21 +316,18 @@ public class InstructorDashboard extends JFrame {
         container.add(footer, BorderLayout.SOUTH);
 
         return container;
-    }// --- View Creation: Gradebook ---
+    }
     private JPanel createGradebookView() {
         JPanel container = new JPanel(new BorderLayout(0, 20));
         container.setOpaque(false);
 
-        // Main content area - split into table card and stats panel
         JPanel mainContent = new JPanel(new BorderLayout(20, 0));
         mainContent.setOpaque(false);
 
-        // LEFT: Grades table card
         JPanel tableCard = new JPanel(new BorderLayout());
         tableCard.setBackground(CARD_BG);
         tableCard.setBorder(BorderFactory.createLineBorder(BORDER_COLOR, 1));
 
-        // Card header
         JPanel cardHeader = new JPanel(new BorderLayout());
         cardHeader.setBackground(CARD_BG);
         cardHeader.setBorder(new EmptyBorder(20, 25, 15, 25));
@@ -352,7 +336,6 @@ public class InstructorDashboard extends JFrame {
         lblGradebookTitle.setForeground(TEXT_PRIMARY);
         cardHeader.add(lblGradebookTitle, BorderLayout.WEST);
 
-        // Table
         tblGrades.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         tblGrades.setRowHeight(40);
         styleModernTable(tblGrades);
@@ -362,7 +345,6 @@ public class InstructorDashboard extends JFrame {
         scrollPane.getViewport().setBackground(CARD_BG);
         scrollPane.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, BORDER_COLOR));
 
-        // Action buttons
         JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 16));
         btnPanel.setBackground(CARD_BG);
         btnPanel.setBorder(new EmptyBorder(0, 10, 0, 0));
@@ -382,7 +364,6 @@ public class InstructorDashboard extends JFrame {
         tableCard.add(scrollPane, BorderLayout.CENTER);
         tableCard.add(btnPanel, BorderLayout.SOUTH);
 
-        // RIGHT: Stats panel (visual cards)
         JPanel statsPanel = createVisualStatsPanel();
 
         mainContent.add(tableCard, BorderLayout.CENTER);
@@ -393,14 +374,12 @@ public class InstructorDashboard extends JFrame {
         return container;
     }
 
-    // --- NEW: Visual Stats Panel with Cards ---
     private JPanel createVisualStatsPanel() {
         JPanel statsContainer = new JPanel();
         statsContainer.setLayout(new BoxLayout(statsContainer, BoxLayout.Y_AXIS));
         statsContainer.setOpaque(false);
         statsContainer.setPreferredSize(new Dimension(280, 0));
 
-        // Title with view button
         JPanel titlePanel = new JPanel(new BorderLayout());
         titlePanel.setOpaque(false);
         titlePanel.setMaximumSize(new Dimension(280, 50));
@@ -417,7 +396,6 @@ public class InstructorDashboard extends JFrame {
         statsContainer.add(titlePanel);
         statsContainer.add(Box.createVerticalStrut(15));
 
-        // Stat cards
         statsContainer.add(createStatCard("Total Students", "0", new Color(59, 130, 246)));
         statsContainer.add(Box.createVerticalStrut(12));
 
@@ -437,7 +415,6 @@ public class InstructorDashboard extends JFrame {
         return statsContainer;
     }
 
-    // --- Helper: Create individual stat card ---
     private JPanel createStatCard(String label, String value, Color accentColor) {
         JPanel card = new JPanel(new BorderLayout());
         card.setBackground(CARD_BG);
@@ -448,12 +425,10 @@ public class InstructorDashboard extends JFrame {
         card.setMaximumSize(new Dimension(280, 90));
         card.setPreferredSize(new Dimension(280, 90));
 
-        // Left accent bar
         JPanel accentBar = new JPanel();
         accentBar.setBackground(accentColor);
         accentBar.setPreferredSize(new Dimension(4, 0));
 
-        // Content
         JPanel content = new JPanel();
         content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
         content.setOpaque(false);
@@ -479,9 +454,7 @@ public class InstructorDashboard extends JFrame {
         return card;
     }
 
-    // --- Update stat cards with current data ---
     private void updateStatCards() {
-        // This will be called after computing stats
         SwingUtilities.invokeLater(() -> {
             Component[] components = ((JPanel) ((JPanel) mainCardPanel.getComponent(1))
                     .getComponent(0)).getComponents();
@@ -527,7 +500,7 @@ public class InstructorDashboard extends JFrame {
             }
         }
         return null;
-    }// --- NEW: Enhanced Stats Dialog with Visual Elements ---
+    }
     private JLabel createStatLabel(String label, String value) {
         JLabel statLabel = new JLabel("<html><b>" + label + ":</b> " + value + "</html>");
         statLabel.setFont(new Font("Segoe UI", Font.PLAIN, 14));
@@ -536,7 +509,7 @@ public class InstructorDashboard extends JFrame {
         statLabel.setBorder(BorderFactory.createEmptyBorder(2, 0, 2, 0)); // Small vertical padding
         return statLabel;
     }
-    // --- NEW: Enhanced Stats Dialog with Visual Elements ---
+
     private void showEnhancedStatsDialog() {
         JDialog statsDialog = new JDialog(this, "Detailed Statistics", true);
         statsDialog.setSize(550, 520);
@@ -553,16 +526,13 @@ public class InstructorDashboard extends JFrame {
         title.setFont(new Font("Segoe UI", Font.BOLD, 22));
         title.setForeground(TEXT_PRIMARY);
 
-        // --- Standard Stats Display Setup ---
         JPanel statsContentPanel = new JPanel();
         statsContentPanel.setLayout(new BoxLayout(statsContentPanel, BoxLayout.Y_AXIS));
         statsContentPanel.setBackground(CARD_BG);
         statsContentPanel.setBorder(BorderFactory.createEmptyBorder(15, 20, 15, 20));
 
-        // Calculate fail count
         int failCount = totalStudents - (int)Math.round(totalStudents * passRate / 100.0);
 
-        // Add individual statistics as plain labels
         statsContentPanel.add(createStatLabel("Total Graded",
                 totalStudents > 0 ? String.valueOf(totalStudents) + " students" : "0 students"));
         statsContentPanel.add(createStatLabel("Average Score",
@@ -576,7 +546,6 @@ public class InstructorDashboard extends JFrame {
         statsContentPanel.add(createStatLabel("Fail Count",
                 totalStudents > 0 ? String.valueOf(failCount) + " students" : "0 students"));
 
-        // --- Grade Distribution Panel ---
         JPanel distributionPanel = new JPanel(new BorderLayout());
         distributionPanel.setBackground(CARD_BG);
         distributionPanel.setBorder(BorderFactory.createCompoundBorder(
@@ -633,7 +602,7 @@ public class InstructorDashboard extends JFrame {
         statsDialog.add(mainPanel);
         statsDialog.setVisible(true);
     }
-    // --- Helper: Detailed stat card for dialog ---
+
     private JPanel createDetailedStatCard(String label, String value, String subtitle, Color color) {
         JPanel card = new JPanel(new BorderLayout());
         card.setBackground(CARD_BG);
@@ -642,12 +611,10 @@ public class InstructorDashboard extends JFrame {
                 new EmptyBorder(18, 20, 18, 20)
         ));
 
-        // Color indicator
         JPanel colorBar = new JPanel();
         colorBar.setBackground(color);
         colorBar.setPreferredSize(new Dimension(5, 0));
 
-        // Content
         JPanel content = new JPanel();
         content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
         content.setOpaque(false);
@@ -680,10 +647,9 @@ public class InstructorDashboard extends JFrame {
         return card;
     }
 
-    // --- Modern dialog helper ---
     private void showModernDialog(String message, String title, int messageType) {
         JOptionPane.showMessageDialog(this, message, title, messageType);
-    }// --- Modern Table Styling ---
+    }
     private void styleModernTable(JTable table) {
         table.setShowGrid(false);
         table.setIntercellSpacing(new Dimension(12, 0));
@@ -694,7 +660,6 @@ public class InstructorDashboard extends JFrame {
         table.setSelectionForeground(TEXT_PRIMARY);
         table.setBackground(CARD_BG);
 
-        // Header styling
         JTableHeader header = table.getTableHeader();
         header.setBackground(CARD_BG);
         header.setForeground(TEXT_SECONDARY);
@@ -716,7 +681,6 @@ public class InstructorDashboard extends JFrame {
             }
         });
 
-        // Cell renderer
         DefaultTableCellRenderer cellRenderer = new DefaultTableCellRenderer() {
             @Override
             public Component getTableCellRendererComponent(JTable table, Object value,
@@ -757,15 +721,13 @@ public class InstructorDashboard extends JFrame {
             }
         });
     }
-
-    // --- Logout Helper ---
     private void logout() {
         if (maintenancePollTimer != null && maintenancePollTimer.isRunning()) {
             maintenancePollTimer.stop();
         }
         dispose();
         SwingUtilities.invokeLater(() -> MainApp.main(new String[0]));
-    }// --- Data Loading Methods ---
+    }
 
     private void loadInstructorDepartment() {
         new SwingWorker<String, Void>() {
@@ -906,7 +868,6 @@ public class InstructorDashboard extends JFrame {
                         }
                     }
 
-                    // Update stats data
                     if (countFinal > 0) {
                         totalStudents = countFinal;
                         avgScore = sumFinal / countFinal;
@@ -941,7 +902,7 @@ public class InstructorDashboard extends JFrame {
                 }
             }
         }.execute();
-    }// --- Grade Computation & Operations ---
+    }
 
     private void computeFinalAndUpdateTable() {
         if (gradeModel.getRowCount() == 0) return;
@@ -1073,7 +1034,8 @@ public class InstructorDashboard extends JFrame {
                 }
             }
         }.execute();
-    }// --- CSV Export ---
+    }
+    //CSV Export
 
     private void exportGradesCSV() {
         if (gradeModel.getRowCount() == 0) {
@@ -1150,11 +1112,6 @@ public class InstructorDashboard extends JFrame {
         });
     }
 
-    // ============================================================================
-    // CUSTOM COMPONENT CLASSES
-    // ============================================================================
-
-    // --- Modern Button Component ---
     private static class ModernButton extends JButton {
         private final boolean isPrimary;
 
@@ -1233,7 +1190,6 @@ public class InstructorDashboard extends JFrame {
         }
     }
 
-    // --- Double Editor for Table Cells ---
     static class DoubleEditor extends DefaultCellEditor {
         private final JTextField fld;
 
@@ -1257,7 +1213,6 @@ public class InstructorDashboard extends JFrame {
         }
     }
 
-    // --- Right-aligned Double Renderer ---
     static class RightAlignDoubleRenderer extends DefaultTableCellRenderer {
         RightAlignDoubleRenderer() {
             setHorizontalAlignment(SwingConstants.RIGHT);

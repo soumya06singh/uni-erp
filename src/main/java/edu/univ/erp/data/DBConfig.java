@@ -5,15 +5,7 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
 
-/**
- * DBConfig - provides connections to auth_db and erp_db.
- *
- * Important:
- * - Java's canonical charset name is "UTF-8" (not "utf8mb4").
- * - We set the JDBC connection to use "UTF-8" and then tell MySQL
- *   the session character_set / collation to utf8mb4 so the server
- *   uses 4-byte UTF-8 internally (emoji, etc.).
- */
+
 public class DBConfig {
 
     private static final String DRIVER = "com.mysql.cj.jdbc.Driver";
@@ -36,10 +28,7 @@ public class DBConfig {
     }
 
     public static Connection getConnection(String dbName) throws SQLException {
-        /*
-         * Use Java's canonical encoding name "UTF-8" here.
-         * We will still tell the server to use utf8mb4 for the session.
-         */
+
         String url = String.format(
                 "jdbc:mysql://%s:%d/%s?serverTimezone=UTC&useSSL=false&useUnicode=true&characterEncoding=UTF-8",
                 HOST, PORT, dbName
@@ -58,11 +47,6 @@ public class DBConfig {
         return getConnection(ERP_DB_NAME);
     }
 
-    /**
-     * Instruct the server session to use utf8mb4 + a utf8mb4 collation.
-     * This keeps comparisons and storage using 4-byte UTF-8 while Java
-     * uses the canonical UTF-8 charset.
-     */
     private static void applyUtf8mb4Session(Connection conn) {
         try (Statement st = conn.createStatement()) {
             // tell server we want utf8mb4 results and utf8mb4 collation for comparisons

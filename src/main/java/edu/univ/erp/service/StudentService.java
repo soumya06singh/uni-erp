@@ -7,15 +7,9 @@ import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Service layer for Student operations
- * Handles all business logic for student enrollment, registration, and grade viewing
- */
+
 public class StudentService {
 
-    /**
-     * Simple DTO for enrollment display with course details
-     */
     public record EnrollmentView(
             String sectionId,
             String courseCode,
@@ -27,9 +21,7 @@ public class StudentService {
             String status
     ) {}
 
-    /**
-     * Simple DTO for course catalog with availability
-     */
+
     public record CourseCatalogView(
             String sectionId,
             String courseCode,
@@ -43,9 +35,6 @@ public class StudentService {
             int available
     ) {}
 
-    /**
-     * Simple DTO for timetable entries
-     */
     public record TimetableView(
             String day,
             String time,
@@ -56,9 +45,7 @@ public class StudentService {
             String endTime
     ) {}
 
-    /**
-     * Simple DTO for grade display
-     */
+
     public record GradeView(
             String courseCode,
             String courseName,
@@ -68,9 +55,7 @@ public class StudentService {
             String finalGrade
     ) {}
 
-    /**
-     * Simple DTO for transcript entries
-     */
+
     public record TranscriptView(
             String courseCode,
             String courseName,
@@ -80,12 +65,7 @@ public class StudentService {
             String finalGrade
     ) {}
 
-    /**
-     * Register a student for a section
-     * Checks: maintenance mode, capacity, duplicate enrollment
-     */
     public ServiceResult<String> registerForSection(String studentId, String sectionId) {
-        // Check maintenance mode
         if (isMaintenanceMode()) {
             return ServiceResult.error("System is in maintenance mode. Registration is disabled.");
         }
@@ -95,8 +75,6 @@ public class StudentService {
                 return ServiceResult.error("Registration deadline has passed. You cannot add courses now.");
             }
 
-
-            // 1) Check section capacity (only ENROLLED count)
             String capacityCheck = """
                 SELECT s.capacity, COALESCE(COUNT(e.enrollment_id), 0) AS enrolled
                 FROM sections s
@@ -121,7 +99,6 @@ public class StudentService {
                 }
             }
 
-            // 2) See if an enrollment row already exists for this student+section
             String existingSql = """
                 SELECT enrollment_id, status
                 FROM enrollments
@@ -142,7 +119,6 @@ public class StudentService {
                 }
             }
 
-            // 3) Decide what to do based on existing row (if any)
             if (existingEnrollmentId != null) {
                 if ("ENROLLED".equalsIgnoreCase(existingStatus)) {
                     // already enrolled
@@ -175,7 +151,6 @@ public class StudentService {
                 }
             }
 
-            // 4) No existing row → insert a brand new enrollment
             String insertSql = """
                 INSERT INTO enrollments (student_id, section_id, status, enrollment_date)
                 VALUES (?, ?, 'ENROLLED', NOW())
@@ -199,9 +174,6 @@ public class StudentService {
         }
     }
 
-    /**
-     * Drop a section for a student
-     */
     public ServiceResult<String> dropSection(String studentId, String sectionId) {
         // Check maintenance mode
         if (isMaintenanceMode()) {
@@ -234,9 +206,6 @@ public class StudentService {
         }
     }
 
-    /**
-     * Get all enrollments for a student
-     */
     public List<EnrollmentView> getStudentEnrollments(String studentId) {
         List<EnrollmentView> enrollments = new ArrayList<>();
 
@@ -276,9 +245,6 @@ public class StudentService {
         return enrollments;
     }
 
-    /**
-     * Get course catalog with availability
-     */
     public List<CourseCatalogView> getCourseCatalog(String keyword, String semester) {
         List<CourseCatalogView> sections = new ArrayList<>();
 
@@ -346,13 +312,10 @@ public class StudentService {
         return sections;
     }
 
-    /**
-     * Get student timetable
-     */
     public List<TimetableView> getStudentTimetable(String studentId) {
         List<TimetableView> timetable = new ArrayList<>();
 
-        String sql = "SELECT sec.day, sec.start_time AS time, sec.end_time, " +  // Changed: separate start_time and end_time
+        String sql = "SELECT sec.day, sec.start_time AS time, sec.end_time, " +
                 "CONCAT(c.course_code, ' - ', c.course_name) AS course, " +
                 "sec.section_id, sec.room, COALESCE(instr.user_id, 'TBA') AS instructor_id " +
                 "FROM enrollments e " +
@@ -386,9 +349,7 @@ public class StudentService {
         }
 
         return timetable;
-    }    /**
-     * Get student grades
-     */
+    }
         public List<GradeView> getStudentGrades(String studentId) {
             List<GradeView> grades = new ArrayList<>();
 
@@ -428,9 +389,6 @@ public class StudentService {
             return grades;
         }
 
-        /**
-         * Get transcript data for CSV export
-         */
     public List<TranscriptView> getTranscript(String studentId) {
         List<TranscriptView> transcript = new ArrayList<>();
 
@@ -467,9 +425,6 @@ public class StudentService {
         return transcript;
     }
 
-    /**
-     * Check if maintenance mode is enabled
-     */
     public boolean isMaintenanceMode() {
         String sql = "SELECT value FROM settings WHERE `key` = 'maintenance_mode'";
 
@@ -494,7 +449,6 @@ public class StudentService {
              ResultSet rs = ps.executeQuery()) {
 
             if (!rs.next()) {
-                // No deadline configured → allow drop
                 return false;
             }
 
@@ -503,7 +457,6 @@ public class StudentService {
                 return false;
             }
 
-            // Expecting YYYY-MM-DD
             LocalDate deadline = LocalDate.parse(value.trim());
             LocalDate today = LocalDate.now();
 

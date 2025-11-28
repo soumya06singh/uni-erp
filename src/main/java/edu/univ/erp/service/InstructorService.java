@@ -6,12 +6,6 @@ import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * InstructorService
- *
- * Small service layer isolating DB access for instructor-related operations.
- * Returns simple DTO records used by the UI.
- */
 public class InstructorService {
 
     public record SectionRow(
@@ -45,9 +39,7 @@ public class InstructorService {
             int weight
     ) {}
 
-    /**
-     * Get department for instructor
-     */
+
     public String getDepartment(String instructorUserId) {
         String sql = "SELECT department FROM instructors WHERE user_id = ?";
         try (Connection conn = DBConfig.getErpConnection();
@@ -62,9 +54,6 @@ public class InstructorService {
         return null;
     }
 
-    /**
-     * Get sections for the instructor
-     */
     public List<SectionRow> getSectionsForInstructor(String instructorUserId) {
         List<SectionRow> out = new ArrayList<>();
         String sql = "SELECT s.section_id, c.course_code, c.course_name, s.semester, s.year, s.day, s.start_time, s.end_time, s.room, s.capacity " +
@@ -95,9 +84,7 @@ public class InstructorService {
         return out;
     }
 
-    /**
-     * Get roster for a section (enrolled students + existing grade components)
-     */
+
     public List<RosterRow> getRosterForSection(String sectionId) {
         List<RosterRow> out = new ArrayList<>();
         String sql = "SELECT e.enrollment_id, st.user_id as student_id, st.roll_no, u.username as student_name " +
@@ -114,7 +101,6 @@ public class InstructorService {
                     String rollNo = rs.getString("roll_no");
                     String studentName = rs.getString("student_name");
 
-                    // fetch existing components
                     Double quiz = null, mid = null, end = null, fin = null;
                     String gsql = "SELECT component, score FROM grades WHERE enrollment_id = ?";
                     try (PreparedStatement gps = conn.prepareStatement(gsql)) {
@@ -156,27 +142,6 @@ public class InstructorService {
         }
     }
 
-    /**
-     * Save a batch of grade rows (upsert)
-     * Expects a list of GradeRow built from the UI.
-     */
-    /**
-     * Save a batch of grade rows (upsert)
-     * Expects a list of GradeRow built from the UI.
-     */
-
-
-       /**
-     * Try common settings column variants to detect maintenance mode.
-     */
-    /**
-     * Save a batch of grade rows (upsert)
-     * Expects a list of GradeRow built from the UI.
-     */
-    /**
-     * Save a batch of grade rows (upsert)
-     * Expects a list of GradeRow built from the UI.
-     */
     public void saveGradesBatch(List<GradeRow> grades) throws SQLException {
         if (grades == null || grades.isEmpty()) return;
 
@@ -232,7 +197,7 @@ ON DUPLICATE KEY UPDATE score = VALUES(score), max_score = VALUES(max_score)
                         if (s != null && !s.isBlank()) return Boolean.parseBoolean(s.trim());
                     }
                 } catch (SQLException ignored) {
-                    // try next
+
                 }
             }
         } catch (SQLException ex) {

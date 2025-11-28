@@ -241,10 +241,8 @@ public class MainApp {
         int y = (scaledH - targetH) / 2;
         BufferedImage cropped = scaled.getSubimage(x, y, targetW, targetH);
 
-        // moderate blur radius: not too heavy
         BufferedImage blurred = applyGaussianBlur(cropped, blurRadius);
 
-        // apply desaturation + dark translucent overlay to get the "navbar-style" glaze
         return applyTintAndDesaturate(blurred, 0.20f, new Color(0, 0, 0, 110));
     }
 
@@ -259,7 +257,6 @@ public class MainApp {
 
         int kernelSize = radius * 2 + 1;
 
-        // horizontal pass
         for (int y = 0; y < h; y++) {
             int yw = y * w;
             for (int x = 0; x < w; x++) {
@@ -280,7 +277,6 @@ public class MainApp {
             }
         }
 
-        // vertical pass
         for (int x = 0; x < w; x++) {
             for (int y = 0; y < h; y++) {
                 long r = 0, g = 0, b = 0;
@@ -382,7 +378,6 @@ public class MainApp {
 
         @Override
         protected void paintComponent(Graphics g) {
-            // Handle disable state graying
             if (!isEnabled()) {
                 g.setColor(new Color(200, 200, 200));
             } else if (getModel().isPressed()) {
@@ -394,7 +389,6 @@ public class MainApp {
             Graphics2D g2 = (Graphics2D) g.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-            // Draw the pill shape
             g2.fillRoundRect(0, 0, getWidth(), getHeight(), 30, 30);
             g2.dispose();
 

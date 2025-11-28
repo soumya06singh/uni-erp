@@ -29,7 +29,6 @@ import java.util.HashSet;
 import java.util.Set;
 public class StudentDashboard extends JFrame {
 
-    // CORRECT color scheme - matching admin dashboard
     private static final Color TEAL_COLOR = new Color(0, 180, 180);           // RGB(0, 180, 180)
     private static final Color TEAL_DARK = new Color(0, 150, 150);            // Darker teal for hover
     private static final Color DELETE_RED = new Color(200, 50, 50);           // Red for delete
@@ -68,15 +67,14 @@ public class StudentDashboard extends JFrame {
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         setLayout(new BorderLayout(0, 0));
 
-        // LEFT SIDEBAR (like admin dashboard)
+        // LEFT SIDEBAR
         JPanel sidebar = createSidebar();
         add(sidebar, BorderLayout.WEST);
 
-        // RIGHT CONTENT AREA
         JPanel contentArea = new JPanel(new BorderLayout(0, 0));
         contentArea.setBackground(Color.WHITE);
 
-        // Maintenance banner at very top
+        // Maintenance banner
         maintenanceBanner = new JLabel("MAINTENANCE MODE - View Only", SwingConstants.CENTER);
         maintenanceBanner.setFont(new Font("Segoe UI", Font.BOLD, 13));
         maintenanceBanner.setBackground(new Color(255, 193, 7));
@@ -86,7 +84,6 @@ public class StudentDashboard extends JFrame {
         maintenanceBanner.setVisible(false);
         contentArea.add(maintenanceBanner, BorderLayout.NORTH);
 
-        // Main tabbed pane
         mainTabbedPane = new JTabbedPane();
         JTabbedPane tabbedPane = mainTabbedPane;
 
@@ -95,13 +92,11 @@ public class StudentDashboard extends JFrame {
         tabbedPane.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 0));
         tabbedPane.setTabPlacement(JTabbedPane.TOP);  // Keep tabs but we'll hide them
 
-// Add tabs WITHOUT labels (empty strings)
         tabbedPane.addTab("", createEnrollmentsPanel());
         tabbedPane.addTab("", createCourseCatalogPanel());
         tabbedPane.addTab("", createTimetablePanel());
         tabbedPane.addTab("", createGradesPanel());
 
-// Hide the tab area completely
         tabbedPane.setUI(new javax.swing.plaf.basic.BasicTabbedPaneUI() {
             @Override
             protected int calculateTabAreaHeight(int tabPlacement, int horizRunCount, int maxTabHeight) {
@@ -110,7 +105,7 @@ public class StudentDashboard extends JFrame {
         });
 
         contentArea.add(tabbedPane, BorderLayout.CENTER);
-        // Bottom buttons panel
+
         JPanel bottomPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 15));
         bottomPanel.setBackground(Color.WHITE);
         bottomPanel.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, BORDER_GRAY));
@@ -135,7 +130,6 @@ public class StudentDashboard extends JFrame {
         sidebar.setPreferredSize(new Dimension(280, getHeight()));
         sidebar.setBorder(BorderFactory.createMatteBorder(0, 0, 0, 1, BORDER_GRAY));
 
-        // Top section with title
         JPanel topSection = new JPanel();
         topSection.setLayout(new BoxLayout(topSection, BoxLayout.Y_AXIS));
         topSection.setBackground(SIDEBAR_BG);
@@ -149,13 +143,11 @@ public class StudentDashboard extends JFrame {
         topSection.add(titleLabel);
         sidebar.add(topSection, BorderLayout.NORTH);
 
-        // Center section with navigation
         JPanel navSection = new JPanel();
         navSection.setLayout(new BoxLayout(navSection, BoxLayout.Y_AXIS));
         navSection.setBackground(SIDEBAR_BG);
         navSection.setBorder(BorderFactory.createEmptyBorder(20, 0, 20, 0));
 
-        // Add navigation buttons
         addNavButton(navSection, "My Enrollments", 0);
         addNavButton(navSection, "Course Catalog", 1);
         addNavButton(navSection, "Timetable", 2);
@@ -163,11 +155,9 @@ public class StudentDashboard extends JFrame {
 
         sidebar.add(navSection, BorderLayout.CENTER);
 
-        // Bottom section with LOGOUT button (RED)
         JPanel bottomSection = new JPanel(new FlowLayout(FlowLayout.LEFT, 25, 25));
         bottomSection.setBackground(SIDEBAR_BG);
 
-        // NEW CODE - Text-only logout
         JLabel logoutLabel = new JLabel("Logout");
         logoutLabel.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         logoutLabel.setForeground(DELETE_RED);
@@ -202,9 +192,6 @@ public class StudentDashboard extends JFrame {
         return sidebar;
     }
 
-    // Add this field at the top of your class with other fields:
-
-    // Add this helper method:
     private void addNavButton(JPanel parent, String text, int tabIndex) {
         JButton btn = new JButton(text);
         btn.setFont(new Font("Segoe UI", Font.PLAIN, 14));
@@ -249,7 +236,6 @@ public class StudentDashboard extends JFrame {
         parent.add(Box.createRigidArea(new Dimension(0, 5)));
     }
 
-    // Add these helper methods:
     private boolean isButtonActive(JButton btn) {
         return btn.getFont().isBold() && btn.isOpaque() &&
                 btn.getBackground().equals(LIGHT_TEAL_BG);
@@ -340,13 +326,12 @@ public class StudentDashboard extends JFrame {
         return table;
     }
 
-    // ==================== MY ENROLLMENTS TAB ====================
+    //MY ENROLLMENTS
     private JPanel createEnrollmentsPanel() {
         JPanel panel = new JPanel(new BorderLayout(0, 20));
         panel.setBackground(Color.WHITE);
         panel.setBorder(BorderFactory.createEmptyBorder(20, 30, 20, 30));
 
-        // ADD THIS - Welcome header
         JLabel headerLabel = new JLabel("Welcome, " + username + " !");
         headerLabel.setFont(new Font("Segoe UI", Font.BOLD, 18));
         headerLabel.setForeground(TEAL_COLOR);
@@ -406,25 +391,21 @@ public class StudentDashboard extends JFrame {
             enrollModel.addRow(row);
         }
     }
-    // ==================== COURSE CATALOG TAB ====================
+    //COURSE CATALOG
     private JPanel createCourseCatalogPanel() {
             JPanel panel = new JPanel(new BorderLayout(0, 20));
             panel.setBackground(Color.WHITE);
             panel.setBorder(BorderFactory.createEmptyBorder(20, 30, 20, 30));
-            // ADD THIS - Header
+
             JLabel headerLabel = new JLabel("Browse & Register for Courses");
             headerLabel.setFont(new Font("Segoe UI", Font.BOLD, 18));
             headerLabel.setForeground(TEAL_COLOR);
             headerLabel.setBorder(BorderFactory.createEmptyBorder(0, 0, 15, 0));
 
-            // Wrap header and search panel together
             JPanel topWrapper = new JPanel(new BorderLayout(0, 15));
             topWrapper.setBackground(Color.WHITE);
             topWrapper.add(headerLabel, BorderLayout.NORTH);
 
-
-
-            // Search panel
             JPanel searchPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 10));
             searchPanel.setBackground(Color.WHITE);
             searchPanel.setBorder(BorderFactory.createCompoundBorder(
@@ -462,7 +443,6 @@ public class StudentDashboard extends JFrame {
             });
             searchPanel.add(clearBtn);
 
-            // Catalog table
             catalogModel = new DefaultTableModel() {
                 @Override
                 public boolean isCellEditable(int row, int column) {
@@ -486,8 +466,6 @@ public class StudentDashboard extends JFrame {
             scroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
             scroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
 
-
-            // Action buttons
             JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 10));
             buttonPanel.setBackground(Color.WHITE);
 
@@ -573,7 +551,6 @@ public class StudentDashboard extends JFrame {
         int enrolled = (int) model.getValueAt(modelRow, 8);
         int available = (int) model.getValueAt(modelRow, 9);
 
-        // Create a cleaner panel layout
         JPanel detailsPanel = new JPanel();
         detailsPanel.setLayout(new BoxLayout(detailsPanel, BoxLayout.Y_AXIS));
         detailsPanel.setBackground(Color.WHITE);
@@ -636,7 +613,7 @@ public class StudentDashboard extends JFrame {
         JOptionPane.showMessageDialog(this, detailsPanel,
                 "Section Details", JOptionPane.PLAIN_MESSAGE);
     }
-    // ==================== TIMETABLE TAB ====================
+    //TIMETABLE
     private JPanel createTimetablePanel() {
         JPanel panel = new JPanel(new BorderLayout(0, 20));
         panel.setBackground(Color.WHITE);
@@ -672,13 +649,12 @@ public class StudentDashboard extends JFrame {
         // Days of the week
         String[] days = {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday"};
 
-        // Time slots - 30 minute intervals from 8:00 to 18:00
+        // Time slots
         String[] timeSlots = {"08:00", "08:30", "09:00", "09:30", "10:00", "10:30",
                 "11:00", "11:30", "12:00", "12:30", "13:00", "13:30",
                 "14:00", "14:30", "15:00", "15:30", "16:00", "16:30",
                 "17:00", "17:30", "18:00"};
 
-        // Main grid panel
         JPanel gridPanel = new JPanel(new GridBagLayout());
         gridPanel.setBackground(Color.WHITE);
         GridBagConstraints gbc = new GridBagConstraints();
@@ -686,7 +662,6 @@ public class StudentDashboard extends JFrame {
         gbc.weightx = 1.0;
         gbc.weighty = 1.0;
 
-        // Add day headers
         gbc.gridy = 0;
         gbc.gridx = 0;
         JLabel cornerLabel = new JLabel("Time", SwingConstants.CENTER);
@@ -707,26 +682,22 @@ public class StudentDashboard extends JFrame {
             gridPanel.add(dayLabel, gbc);
         }
 
-        // Load timetable data
         List<TimetableView> timetable = studentService.getStudentTimetable(userId);
 
-        // Create a map: day -> list of courses for that day
         Map<String, List<TimetableView>> scheduleMap = new HashMap<>();
         for (TimetableView entry : timetable) {
             scheduleMap.putIfAbsent(entry.day(), new ArrayList<>());
             scheduleMap.get(entry.day()).add(entry);
         }
 
-        // Track which cells are occupied by spanning cells
         Set<String> occupiedCells = new HashSet<>();
 
-        // Add time slots and course cells
         for (int row = 0; row < timeSlots.length; row++) {
             gbc.gridy = row + 1;
             gbc.gridx = 0;
             gbc.gridheight = 1;
 
-            // Time label
+
             JLabel timeLabel = new JLabel(timeSlots[row], SwingConstants.CENTER);
             timeLabel.setFont(new Font("Segoe UI", Font.PLAIN, 11));
             timeLabel.setBorder(BorderFactory.createMatteBorder(1, 1, 1, 1, BORDER_GRAY));
@@ -734,7 +705,7 @@ public class StudentDashboard extends JFrame {
             timeLabel.setOpaque(true);
             gridPanel.add(timeLabel, gbc);
 
-            // Day cells
+
             for (int col = 0; col < days.length; col++) {
                 gbc.gridx = col + 1;
                 gbc.gridheight = 1;
@@ -743,12 +714,10 @@ public class StudentDashboard extends JFrame {
                 String currentTimeSlot = timeSlots[row];
                 String cellKey = day + "-" + row;
 
-                // Skip if this cell is already occupied by a spanning cell
                 if (occupiedCells.contains(cellKey)) {
                     continue;
                 }
 
-                // Find classes that START at this exact time slot
                 List<TimetableView> classesAtThisTime = new ArrayList<>();
                 if (scheduleMap.containsKey(day)) {
                     for (TimetableView entry : scheduleMap.get(day)) {
@@ -764,10 +733,9 @@ public class StudentDashboard extends JFrame {
                 cellPanel.setBackground(Color.WHITE);
 
                 if (!classesAtThisTime.isEmpty()) {
-                    // Get the first class to determine duration (assuming all classes at same time have same duration)
                     TimetableView firstClass = classesAtThisTime.get(0);
 
-                    // Parse start and end times
+
                     String startTimeStr = firstClass.time().substring(0, 5);
                     String endTimeStr = firstClass.endTime().substring(0, 5);
 
@@ -783,15 +751,10 @@ public class StudentDashboard extends JFrame {
                     int endTotalMin = endHour * 60 + endMin;
                     int durationMin = endTotalMin - startTotalMin;
 
-                    // Calculate how many 30-minute slots needed
-                    // For 90 minutes (9:00-10:30): we need 4 slots (9:00, 9:30, 10:00, 10:30)
-                    // Formula: duration / 30 + 1 (to include both start and end slots)
                     int slotsNeeded = (durationMin / 30) + 1;
 
-                    // Set gridheight to span multiple rows
                     gbc.gridheight = slotsNeeded;
 
-                    // Mark all occupied cells
                     for (int i = 0; i < slotsNeeded; i++) {
                         if (row + i < timeSlots.length) {
                             occupiedCells.add(day + "-" + (row + i));
@@ -804,9 +767,7 @@ public class StudentDashboard extends JFrame {
                             BorderFactory.createMatteBorder(0, 3, 0, 0, TEAL_COLOR)
                     ));
 
-                    // Layout classes in the cell
                     if (classesAtThisTime.size() == 1) {
-                        // Single class - use entire cell
                         cellPanel.setLayout(new BorderLayout(3, 3));
                         TimetableView entry = classesAtThisTime.get(0);
 
@@ -820,7 +781,6 @@ public class StudentDashboard extends JFrame {
                         courseLabel.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
                         cellPanel.add(courseLabel, BorderLayout.CENTER);
                     } else {
-                        // Multiple classes - divide cell vertically
                         cellPanel.setLayout(new GridLayout(classesAtThisTime.size(), 1, 0, 2));
 
                         for (TimetableView entry : classesAtThisTime) {
@@ -844,7 +804,6 @@ public class StudentDashboard extends JFrame {
 
                     cellPanel.setPreferredSize(new Dimension(150, 40 * slotsNeeded));
                 } else {
-                    // Empty cell
                     cellPanel.setLayout(new BorderLayout());
                     cellPanel.setPreferredSize(new Dimension(150, 40));
                 }
@@ -862,23 +821,19 @@ public class StudentDashboard extends JFrame {
         return calendarPanel;
     }
        private void refreshTimetable() {
-        // Get the timetable tab panel (index 2)
         Component timetableTab = mainTabbedPane.getComponentAt(2);
         if (timetableTab instanceof JPanel) {
             JPanel panel = (JPanel) timetableTab;
 
-            // Remove all components
             panel.removeAll();
 
-            // Set layout again
             panel.setLayout(new BorderLayout(0, 20));
             panel.setBackground(Color.WHITE);
             panel.setBorder(BorderFactory.createEmptyBorder(20, 30, 20, 30));
 
-            // Create fresh calendar with updated data
             JPanel calendarPanel = createCalendarTimetable();
 
-            // Create refresh button
+            //refresh button
             JButton refreshBtn = createRoundedButton("Refresh Timetable", TEAL_COLOR);
             refreshBtn.addActionListener(e -> refreshTimetable());
 
@@ -886,7 +841,6 @@ public class StudentDashboard extends JFrame {
             buttonPanel.setBackground(Color.WHITE);
             buttonPanel.add(refreshBtn);
 
-            // Add components back
             panel.add(calendarPanel, BorderLayout.CENTER);
             panel.add(buttonPanel, BorderLayout.SOUTH);
 
@@ -894,7 +848,7 @@ public class StudentDashboard extends JFrame {
             panel.revalidate();
             panel.repaint();
         }
-    }    // ==================== GRADES TAB ====================
+    }    //GRADES
     private JPanel createGradesPanel() {
         JPanel panel = new JPanel(new BorderLayout(0, 20));
         panel.setBackground(Color.WHITE);
@@ -955,7 +909,7 @@ public class StudentDashboard extends JFrame {
             model.addRow(row);
         }
     }
-    // ==================== ACTIONS ====================
+
     private void registerForSection(JTable table, DefaultTableModel model) {
         int selectedRow = table.getSelectedRow();
         if (selectedRow == -1) {

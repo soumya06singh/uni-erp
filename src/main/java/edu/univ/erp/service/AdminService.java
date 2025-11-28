@@ -9,13 +9,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * Service layer for Admin operations
- * Handles user management, course management, section management, and system settings
- */
-public class AdminService {
 
-    // ==================== VIEW DTOs ====================
+public class AdminService {
 
     public record UserView(
             String userId,
@@ -65,19 +60,14 @@ public class AdminService {
             int enrolled
     ) {}
 
-    // ==================== USER MANAGEMENT ====================
+    //USER MANAGEMENT
 
-    /**
-     * Add a new student (creates entry in both auth_db and erp_db)
-     */
     public ServiceResult<String> addStudent(String username, String password, String rollNo,
                                             String program, int yearOfStudy) {
 
-        // server-side validation
         if (username == null || username.isBlank()) return ServiceResult.error("Username required");
         if (password == null || password.length() < 6) return ServiceResult.error("Password must be at least 6 characters");
         if (rollNo == null || !rollNo.matches("^\\d{7}$")) return ServiceResult.error("Invalid roll number");
-        // extra validation for program/year could be added
 
         // check username uniqueness
         if (usernameExists(username)) {
@@ -87,7 +77,6 @@ public class AdminService {
         String userId = UUID.randomUUID().toString();
         String passwordHash = HashUtil.hashPassword(password);
 
-        // Insert auth first. If second insert fails, delete the auth entry to avoid partial state.
         String authSql = "INSERT INTO users_auth (user_id, username, role, password_hash, status, last_login) " +
                 "VALUES (?, ?, 'STUDENT', ?, 'ACTIVE', NULL)";
         String erpSql = "INSERT INTO students (user_id, roll_no, program, year_of_study, enrollment_date) " +
@@ -103,11 +92,10 @@ public class AdminService {
 
         } catch (SQLException e) {
             e.printStackTrace();
-            // If constraint error or other DB error on auth insert, return meaningful message
+
             return ServiceResult.error("Failed to add student (auth): " + e.getMessage());
         }
 
-        // Now insert student details; if this fails, remove auth entry inserted above
         try (Connection erpConn = DBConfig.getErpConnection();
              PreparedStatement erpPs = erpConn.prepareStatement(erpSql)) {
 
@@ -121,24 +109,17 @@ public class AdminService {
 
         } catch (SQLException e) {
             e.printStackTrace();
-            // Cleanup: delete auth entry we created earlier to keep DBs consistent
             try (Connection cleanupConn = DBConfig.getAuthConnection();
                  PreparedStatement cleanupPs = cleanupConn.prepareStatement("DELETE FROM users_auth WHERE user_id = ?")) {
                 cleanupPs.setString(1, userId);
                 cleanupPs.executeUpdate();
             } catch (SQLException ex) {
                 ex.printStackTrace();
-                // If cleanup fails, log — but still report original failure
             }
             return ServiceResult.error("Failed to add student (erp): " + e.getMessage());
         }
     }
 
-
-
-    /**
-     * Add a new instructor
-     */
     public ServiceResult<String> addInstructor(String username, String password, String department,
                                                String designation, String officeRoom) {
 
@@ -198,10 +179,6 @@ public class AdminService {
         }
     }
 
-
-    /**
-     * Add a new admin
-     */
     public ServiceResult<String> addAdmin(String username, String password) {
         if (username == null || username.isBlank()) return ServiceResult.error("Username required");
         if (password == null || password.length() < 6) return ServiceResult.error("Password must be at least 6 characters");
@@ -230,10 +207,6 @@ public class AdminService {
         }
     }
 
-
-    /**
-     * Get all users with their roles
-     */
     public List<UserView> getAllUsers() {
         List<UserView> users = new ArrayList<>();
 
@@ -293,12 +266,8 @@ public class AdminService {
         return "N/A";
     }
 
-    /**
-     * Delete a user (removes from both databases)
-     */
     public ServiceResult<String> deleteUser(String userId, String role) {
         try {
-            // Delete from ERP DB first (if student/instructor)
             if ("STUDENT".equals(role)) {
                 try (Connection conn = DBConfig.getErpConnection()) {
                     String sql = "DELETE FROM students WHERE user_id = ?";
@@ -336,9 +305,6 @@ public class AdminService {
 
     // ==================== COURSE MANAGEMENT ====================
 
-    /**
-     * Add a new course
-     */
     public ServiceResult<Integer> addCourse(String courseCode, String courseName, int credits, String description) {
         String sql = "INSERT INTO courses (course_code, course_name, credits, description) VALUES (?, ?, ?, ?)";
 
@@ -365,9 +331,6 @@ public class AdminService {
         }
     }
 
-    /**
-     * Get all courses
-     */
     public List<CourseView> getAllCourses() {
         List<CourseView> courses = new ArrayList<>();
 
@@ -394,9 +357,7 @@ public class AdminService {
         return courses;
     }
 
-    /**
-     * Update a course
-     */
+
     public ServiceResult<String> updateCourse(int courseId, String courseCode, String courseName,
                                               int credits, String description) {
         String sql = "UPDATE courses SET course_code = ?, course_name = ?, credits = ?, description = ? WHERE course_id = ?";
@@ -423,9 +384,6 @@ public class AdminService {
         }
     }
 
-    /**
-     * Delete a course
-     */
     public ServiceResult<String> deleteCourse(int courseId) {
         String sql = "DELETE FROM courses WHERE course_id = ?";
 
@@ -471,7 +429,6 @@ public class AdminService {
             }
         } catch (SQLException e) {
             e.printStackTrace();
-            // In doubtful cases, return true to prevent creating duplicate accounts
             return true;
         }
     }
@@ -481,7 +438,6 @@ public class AdminService {
 
         String sectionId = generateSectionId(courseId, semester, year);
 
-        // ⭐ FIX: Normalize input before DB insert
         String cleanStart = formatTime(startTime);
         String cleanEnd   = formatTime(endTime);
 
@@ -544,13 +500,9 @@ public class AdminService {
         return "SEC-" + System.currentTimeMillis();
     }
 
-    /**
-     * Get all sections with enrollment count
-     */
     public List<SectionView> getAllSections() {
         List<SectionView> sections = new ArrayList<>();
 
-        // ✅ UPDATED: Now joins to get instructor name from users_auth
         String sql = "SELECT s.section_id, s.course_id, c.course_code, c.course_name, " +
                 "s.instructor_id, u.username as instructor_name, " +
                 "s.semester, s.year, s.day, s.start_time, s.end_time, " +
@@ -596,9 +548,7 @@ public class AdminService {
 
         return sections;
     }
-    /**
-     * Assign instructor to section
-     */
+
     public ServiceResult<String> assignInstructor(String sectionId, String instructorId) {
         String sql = "UPDATE sections SET instructor_id = ? WHERE section_id = ?";
 
@@ -621,9 +571,6 @@ public class AdminService {
         }
     }
 
-    /**
-     * Delete a section
-     */
     public ServiceResult<String> deleteSection(String sectionId) {
         String sql = "DELETE FROM sections WHERE section_id = ?";
 
@@ -647,9 +594,6 @@ public class AdminService {
 
     // ==================== SYSTEM SETTINGS ====================
 
-    /**
-     * Toggle maintenance mode
-     */
     public ServiceResult<Boolean> toggleMaintenanceMode(boolean enable) {
         String sql = "UPDATE settings SET `value` = ? WHERE `key` = 'maintenance_mode'";
 
@@ -670,9 +614,6 @@ public class AdminService {
         }
     }
 
-    /**
-     * Get current maintenance mode status
-     */
     public boolean getMaintenanceMode() {
         String sql = "SELECT `value` FROM settings WHERE `key` = 'maintenance_mode'";
 
@@ -691,13 +632,10 @@ public class AdminService {
         return false;
     }
 
-    /**
-     * Get all instructors for dropdown
-     */
+
     public List<InstructorView> getAllInstructors() {
         List<InstructorView> instructors = new ArrayList<>();
 
-        // ✅ UPDATED: Now joins with users_auth to get username as name
         String sql = "SELECT i.user_id, u.username as name, i.department, i.designation, i.office_room " +
                 "FROM instructors i " +
                 "JOIN auth_db.users_auth u ON i.user_id = u.user_id " +

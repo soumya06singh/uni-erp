@@ -2,33 +2,31 @@ package edu.univ.erp.auth;
 
 import org.mindrot.jbcrypt.BCrypt;
 
-public class HashUtil{
+public class HashUtil {
 
-    public static String hashPassword(String Password){
-        if(Password==null){
+    // produce a BCrypt hash for storage
+    public static String hashPassword(String password) {
+        if (password == null) {
             throw new IllegalArgumentException("Password cannot be null.");
         }
-        return BCrypt.hashpw(Password, BCrypt.gensalt());
+        return BCrypt.hashpw(password, BCrypt.gensalt());
     }
 
-    public static boolean checkPassword(String Password, String storedHash){
-        if(Password==null||storedHash==null){
-            return false;  // cannot match
+    // verify a plain password against stored BCrypt hash
+    public static boolean checkPassword(String password, String storedHash) {
+        if (password == null || storedHash == null) {
+            return false;
         }
-        try{
-            return BCrypt.checkpw(Password,storedHash);
-        }catch(IllegalArgumentException e){
+        try {
+            return BCrypt.checkpw(password, storedHash);
+        } catch (IllegalArgumentException e) {
             System.err.println("Invalid hash format: " + e.getMessage());
             return false;
         }
     }
 
+    // optional: remove or keep only for quick manual tests (DO NOT use in production)
     public static void main(String[] args) {
-        String password = "password123";   // <-- HARD-CODED PASSWORD FOR EVERY ENTRY
-        String hash = hashPassword(password);
-
-        System.out.println("Plain Password: " + password);
-        System.out.println("Generated Hash:");
-        System.out.println(hash);
+        System.out.println("HashUtil test: remove hard-coded passwords from main usage.");
     }
 }

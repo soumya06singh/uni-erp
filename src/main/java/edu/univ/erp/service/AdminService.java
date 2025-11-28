@@ -72,46 +72,68 @@ public class AdminService {
      */
     public ServiceResult<String> addStudent(String username, String password, String rollNo,
                                             String program, int yearOfStudy) {
-        String userId = UUID.randomUUID().toString();
 
+        // server-side validation
+        if (username == null || username.isBlank()) return ServiceResult.error("Username required");
+        if (password == null || password.length() < 6) return ServiceResult.error("Password must be at least 6 characters");
+        if (rollNo == null || !rollNo.matches("^\\d{7}$")) return ServiceResult.error("Invalid roll number");
+        // extra validation for program/year could be added
+
+        // check username uniqueness
+        if (usernameExists(username)) {
+            return ServiceResult.error("Username already exists");
+        }
+
+        String userId = UUID.randomUUID().toString();
         String passwordHash = HashUtil.hashPassword(password);
 
-        try {
-            // 1. Insert into auth_db
-            try (Connection authConn = DBConfig.getAuthConnection()) {
-                String authSql = "INSERT INTO users_auth (user_id, username, role, password_hash, status, last_login) " +
-                        "VALUES (?, ?, 'STUDENT', ?, 'ACTIVE', NULL)";
+        // Insert auth first. If second insert fails, delete the auth entry to avoid partial state.
+        String authSql = "INSERT INTO users_auth (user_id, username, role, password_hash, status, last_login) " +
+                "VALUES (?, ?, 'STUDENT', ?, 'ACTIVE', NULL)";
+        String erpSql = "INSERT INTO students (user_id, roll_no, program, year_of_study, enrollment_date) " +
+                "VALUES (?, ?, ?, ?, CURDATE())";
 
+        try (Connection authConn = DBConfig.getAuthConnection();
+             PreparedStatement authPs = authConn.prepareStatement(authSql)) {
 
-                try (PreparedStatement ps = authConn.prepareStatement(authSql)) {
-                    ps.setString(1, userId);
-                    ps.setString(2, username);
-                    ps.setString(3, passwordHash);
-                    ps.executeUpdate();
-                }
-            }
+            authPs.setString(1, userId);
+            authPs.setString(2, username);
+            authPs.setString(3, passwordHash);
+            authPs.executeUpdate();
 
-            // 2. Insert into erp_db students table
-            try (Connection erpConn = DBConfig.getErpConnection()) {
-                String erpSql = "INSERT INTO students (user_id, roll_no, program, year_of_study, enrollment_date) " +
-                        "VALUES (?, ?, ?, ?, CURDATE())";
+        } catch (SQLException e) {
+            e.printStackTrace();
+            // If constraint error or other DB error on auth insert, return meaningful message
+            return ServiceResult.error("Failed to add student (auth): " + e.getMessage());
+        }
 
-                try (PreparedStatement ps = erpConn.prepareStatement(erpSql)) {
-                    ps.setString(1, userId);
-                    ps.setString(2, rollNo);
-                    ps.setString(3, program);
-                    ps.setInt(4, yearOfStudy);
-                    ps.executeUpdate();
-                }
-            }
+        // Now insert student details; if this fails, remove auth entry inserted above
+        try (Connection erpConn = DBConfig.getErpConnection();
+             PreparedStatement erpPs = erpConn.prepareStatement(erpSql)) {
+
+            erpPs.setString(1, userId);
+            erpPs.setString(2, rollNo);
+            erpPs.setString(3, program);
+            erpPs.setInt(4, yearOfStudy);
+            erpPs.executeUpdate();
 
             return ServiceResult.success("Student added successfully!", userId);
 
         } catch (SQLException e) {
             e.printStackTrace();
-            return ServiceResult.error("Failed to add student: " + e.getMessage());
+            // Cleanup: delete auth entry we created earlier to keep DBs consistent
+            try (Connection cleanupConn = DBConfig.getAuthConnection();
+                 PreparedStatement cleanupPs = cleanupConn.prepareStatement("DELETE FROM users_auth WHERE user_id = ?")) {
+                cleanupPs.setString(1, userId);
+                cleanupPs.executeUpdate();
+            } catch (SQLException ex) {
+                ex.printStackTrace();
+                // If cleanup fails, log — but still report original failure
+            }
+            return ServiceResult.error("Failed to add student (erp): " + e.getMessage());
         }
     }
+
 
 
     /**
@@ -119,63 +141,86 @@ public class AdminService {
      */
     public ServiceResult<String> addInstructor(String username, String password, String department,
                                                String designation, String officeRoom) {
+
+        if (username == null || username.isBlank()) return ServiceResult.error("Username required");
+        if (password == null || password.length() < 6) return ServiceResult.error("Password must be at least 6 characters");
+        if (department == null || department.isBlank()) return ServiceResult.error("Department required");
+        if (designation == null || designation.isBlank()) return ServiceResult.error("Designation required");
+        if (officeRoom == null) officeRoom = "";
+
+        if (usernameExists(username)) {
+            return ServiceResult.error("Username already exists");
+        }
+
         String userId = "inst" + String.format("%03d", (int)(Math.random() * 1000));
         String passwordHash = HashUtil.hashPassword(password);
 
-        try {
-            // 1. Insert into auth_db
-            try (Connection authConn = DBConfig.getAuthConnection()) {
-                String authSql = "INSERT INTO users_auth (user_id, username, role, password_hash, status, last_login) " +
-                        "VALUES (?, ?, 'INSTRUCTOR', ?, 'ACTIVE', NULL)";
+        String authSql = "INSERT INTO users_auth (user_id, username, role, password_hash, status, last_login) " +
+                "VALUES (?, ?, 'INSTRUCTOR', ?, 'ACTIVE', NULL)";
+        String erpSql = "INSERT INTO instructors (user_id, department, designation, office_room) " +
+                "VALUES (?, ?, ?, ?)";
 
+        try (Connection authConn = DBConfig.getAuthConnection();
+             PreparedStatement authPs = authConn.prepareStatement(authSql)) {
 
-                try (PreparedStatement ps = authConn.prepareStatement(authSql)) {
-                    ps.setString(1, userId);
-                    ps.setString(2, username);
-                    ps.setString(3, passwordHash);
-                    ps.executeUpdate();
-                }
-            }
+            authPs.setString(1, userId);
+            authPs.setString(2, username);
+            authPs.setString(3, passwordHash);
+            authPs.executeUpdate();
 
-            // 2. Insert into erp_db instructors table
-            try (Connection erpConn = DBConfig.getErpConnection()) {
-                String erpSql = "INSERT INTO instructors (user_id, department, designation, office_room) " +
-                        "VALUES (?, ?, ?, ?)";
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return ServiceResult.error("Failed to add instructor (auth): " + e.getMessage());
+        }
 
-                try (PreparedStatement ps = erpConn.prepareStatement(erpSql)) {
-                    ps.setString(1, userId);
-                    ps.setString(2, department);
-                    ps.setString(3, designation);
-                    ps.setString(4, officeRoom);
-                    ps.executeUpdate();
-                }
-            }
+        try (Connection erpConn = DBConfig.getErpConnection();
+             PreparedStatement erpPs = erpConn.prepareStatement(erpSql)) {
+
+            erpPs.setString(1, userId);
+            erpPs.setString(2, department);
+            erpPs.setString(3, designation);
+            erpPs.setString(4, officeRoom);
+            erpPs.executeUpdate();
 
             return ServiceResult.success("Instructor added successfully!", userId);
 
         } catch (SQLException e) {
             e.printStackTrace();
-            return ServiceResult.error("Failed to add instructor: " + e.getMessage());
+            // cleanup
+            try (Connection cleanupConn = DBConfig.getAuthConnection();
+                 PreparedStatement cleanupPs = cleanupConn.prepareStatement("DELETE FROM users_auth WHERE user_id = ?")) {
+                cleanupPs.setString(1, userId);
+                cleanupPs.executeUpdate();
+            } catch (SQLException ex) {
+                ex.printStackTrace();
+            }
+            return ServiceResult.error("Failed to add instructor (erp): " + e.getMessage());
         }
     }
+
 
     /**
      * Add a new admin
      */
     public ServiceResult<String> addAdmin(String username, String password) {
+        if (username == null || username.isBlank()) return ServiceResult.error("Username required");
+        if (password == null || password.length() < 6) return ServiceResult.error("Password must be at least 6 characters");
+
+        if (usernameExists(username)) return ServiceResult.error("Username already exists");
+
         String userId = "admin" + String.format("%03d", (int)(Math.random() * 1000));
         String passwordHash = HashUtil.hashPassword(password);
 
-        try (Connection authConn = DBConfig.getAuthConnection()) {
-            String sql = "INSERT INTO users_auth (user_id, username, role, password_hash, status, last_login) " +
-                    "VALUES (?, ?, 'ADMIN', ?, 'ACTIVE', NULL)";
+        String sql = "INSERT INTO users_auth (user_id, username, role, password_hash, status, last_login) " +
+                "VALUES (?, ?, 'ADMIN', ?, 'ACTIVE', NULL)";
 
-            try (PreparedStatement ps = authConn.prepareStatement(sql)) {
-                ps.setString(1, userId);
-                ps.setString(2, username);
-                ps.setString(3, passwordHash);
-                ps.executeUpdate();
-            }
+        try (Connection authConn = DBConfig.getAuthConnection();
+             PreparedStatement ps = authConn.prepareStatement(sql)) {
+
+            ps.setString(1, userId);
+            ps.setString(2, username);
+            ps.setString(3, passwordHash);
+            ps.executeUpdate();
 
             return ServiceResult.success("Admin added successfully!", userId);
 
@@ -184,6 +229,7 @@ public class AdminService {
             return ServiceResult.error("Failed to add admin: " + e.getMessage());
         }
     }
+
 
     /**
      * Get all users with their roles
@@ -412,6 +458,21 @@ public class AdminService {
             return t.toString().substring(0, 5); // ensure HH:MM only
         } catch (Exception e) {
             return time; // fallback but avoids crash
+        }
+    }
+
+    private boolean usernameExists(String username) {
+        String sql = "SELECT 1 FROM users_auth WHERE username = ? LIMIT 1";
+        try (Connection conn = DBConfig.getAuthConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, username);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next();
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            // In doubtful cases, return true to prevent creating duplicate accounts
+            return true;
         }
     }
 
